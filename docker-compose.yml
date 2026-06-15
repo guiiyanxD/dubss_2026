@@ -24,7 +24,24 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
-
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@ficct.com
+      PGADMIN_DEFAULT_PASSWORD: adminpassword
+      PGADMIN_SERVER_JSON_FILE: /tmp/servers.json
+    env_file:
+      - .env
+    ports:
+      - "8080:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+      - ./docker/pgadmin/setup.sh:/pgadmin/setup.sh:ro
+    entrypoint: /bin/sh /pgadmin/setup.sh
+    depends_on:
+      db:
+        condition: service_healthy
   # Servicio que corre migraciones una sola vez al iniciar el stack.
   # web, worker y beat dependen de que este servicio termine exitosamente.
   init:
@@ -104,3 +121,4 @@ services:
 volumes:
   postgres_data:
   media_data:
+  pgadmin_data:
