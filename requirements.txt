@@ -1,0 +1,43 @@
+# Core
+Django==5.2.*
+psycopg[binary]==3.2.*
+python-decouple==3.8
+
+# Async tasks
+celery==5.6.*
+django-celery-beat==2.9.*
+redis==5.2.*
+
+# Forms & UI
+django-crispy-forms==2.3
+crispy-bootstrap5==2024.10
+django-htmx==1.19.*
+
+# Auth
+django-allauth==65.*
+
+# Audit & filters
+django-simple-history==3.7.*
+django-filter==24.*
+django-tables2==2.7.*
+
+# Data processing
+pandas==2.2.*
+numpy==2.1.*
+
+# Reports
+weasyprint==62.*
+openpyxl==3.1.*
+matplotlib==3.9.*
+plotly==5.24.*
+
+# Media
+Pillow==11.*
+
+# Production server
+gunicorn==23.*
+
+# Development
+pytest-django==4.9.*
+ruff==0.7.*
+django-debug-toolbar==4.4.*
