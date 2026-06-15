@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+
+{% block title %}Panel de Reportes{% endblock %}
+
+{% block content %}
+<h2 class="mb-4">Panel de Procesamiento y Reportes</h2>
+
+{% if resumen %}
+<div class="table-responsive">
+    <table class="table table-hover align-middle">
+        <thead class="table-dark">
+            <tr>
+                <th>Convocatoria</th>
+                <th>Estado</th>
+                <th class="text-center">Aprobadas</th>
+                <th class="text-center">Procesadas</th>
+                <th class="text-center">Adjudicadas</th>
+                <th>Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in resumen %}
+            <tr>
+                <td><strong>{{ item.convocatoria.nombre }}</strong></td>
+                <td>
+                    {% if item.convocatoria.estado == 'PUBLICADA' %}
+                        <span class="badge bg-success">Publicada</span>
+                    {% elif item.convocatoria.estado == 'CERRADA' %}
+                        <span class="badge bg-secondary">Cerrada</span>
+                    {% else %}
+                        <span class="badge bg-warning text-dark">Borrador</span>
+                    {% endif %}
+                </td>
+                <td class="text-center">
+                    <span class="badge bg-info text-dark fs-6">{{ item.aprobadas }}</span>
+                </td>
+                <td class="text-center">
+                    <span class="badge bg-primary fs-6">{{ item.procesadas }}</span>
+                </td>
+                <td class="text-center">
+                    <span class="badge bg-success fs-6">{{ item.adjudicadas }}</span>
+                </td>
+                <td>
+                    <div class="d-flex flex-wrap gap-1">
+                        {% if item.aprobadas > 0 %}
+                        <form method="post" action="{% url 'reportes:procesar' convocatoria_pk=item.convocatoria.pk %}">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-sm btn-outline-primary"
+                                    onclick="return confirm('¿Calcular puntajes para {{ item.aprobadas }} postulaciones?')">
+                                CU23 Procesar
+                            </button>
+                        </form>
+                        {% endif %}
+                        {% if item.procesadas > 0 or item.tiene_ranking %}
+                        <a href="{% url 'reportes:ranking' convocatoria_pk=item.convocatoria.pk %}"
+                           class="btn btn-sm btn-outline-warning">
+                            CU24 Ranking
+                        </a>
+                        {% endif %}
+                        {% if item.tiene_ranking %}
+                        <a href="{% url 'reportes:excel' convocatoria_pk=item.convocatoria.pk %}"
+                           class="btn btn-sm btn-outline-success">
+                            CU25 Excel
+                        </a>
+                        <a href="{% url 'reportes:pdf' convocatoria_pk=item.convocatoria.pk %}"
+                           class="btn btn-sm btn-outline-danger">
+                            CU26 PDF
+                        </a>
+                        {% endif %}
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="text-center py-5 text-muted">
+    <p class="fs-5">No hay convocatorias registradas.</p>
+</div>
+{% endif %}
+{% endblock %}

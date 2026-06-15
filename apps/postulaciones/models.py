@@ -56,6 +56,13 @@ class Postulacion(models.Model):
     fecha_creacion = models.DateTimeField("fecha de creación", auto_now_add=True)
     fecha_envio = models.DateTimeField("fecha de envío", null=True, blank=True)
     observaciones_identidad = models.TextField("observaciones de identidad", blank=True)
+    puntaje_socioeconomico = models.DecimalField(
+        "puntaje socioeconómico",
+        max_digits=5,
+        decimal_places=2,
+        null=True,
+        blank=True,
+    )
     history = HistoricalRecords()
 
     class Meta:

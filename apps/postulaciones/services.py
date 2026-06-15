@@ -14,6 +14,11 @@ from .exceptions import (
     TransicionEstadoInvalidaError,
 )
 from .models import DocumentoPostulacion, Postulacion
+from .signals import (
+    documentacion_procesada,
+    identidad_verificada,
+    postulacion_enviada,
+)
 
 
 @transaction.atomic
@@ -95,6 +100,9 @@ def enviar_postulacion(*, postulacion):
             tipo_documento=tipo_doc,
         )
 
+    transaction.on_commit(
+        lambda: postulacion_enviada.send(sender=Postulacion, postulacion=postulacion)
+    )
     return postulacion
 
 
@@ -128,6 +136,12 @@ def verificar_identidad(*, postulacion, aprobar, observaciones=""):
         postulacion.estado = Postulacion.Estado.RECHAZADA_IDENTIDAD
 
     postulacion.save(update_fields=["estado", "observaciones_identidad"])
+
+    transaction.on_commit(
+        lambda: identidad_verificada.send(
+            sender=Postulacion, postulacion=postulacion, aprobada=aprobar
+        )
+    )
     return postulacion
 
 
@@ -159,14 +173,26 @@ def validar_documento(*, documento, aprobar):
     documento.fecha_validacion = timezone.now()
     documento.save(update_fields=["validado", "fecha_validacion"])
 
+    estado_final = None
     if not aprobar:
         postulacion.estado = Postulacion.Estado.RECHAZADA_DOCUMENTACION
         postulacion.save(update_fields=["estado"])
+        estado_final = False
     else:
         pendientes = postulacion.documentos.filter(validado__isnull=True).exists()
         if not pendientes:
             postulacion.estado = Postulacion.Estado.APROBADA
             postulacion.save(update_fields=["estado"])
+            estado_final = True
+
+    if estado_final is not None:
+        _aprobada = estado_final
+        _post = postulacion
+        transaction.on_commit(
+            lambda: documentacion_procesada.send(
+                sender=Postulacion, postulacion=_post, aprobada=_aprobada
+            )
+        )
 
     return documento
 
