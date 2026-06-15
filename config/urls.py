@@ -10,6 +10,8 @@ urlpatterns = [
     path("acceso/", include("apps.acceso.urls", namespace="acceso")),
     path("usuarios/", include("apps.usuarios.urls", namespace="usuarios")),
     path("convocatorias/", include("apps.convocatorias.urls", namespace="convocatorias")),
+    path("mi-formulario/", include("apps.configuracion.urls", namespace="configuracion")),
+    path("postulaciones/", include("apps.postulaciones.urls", namespace="postulaciones")),
     path("", RedirectView.as_view(pattern_name="acceso:inicio", permanent=False)),
 ]
 

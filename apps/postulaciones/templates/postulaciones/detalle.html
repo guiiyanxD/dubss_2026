@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% load crispy_forms_tags %}
+
+{% block title %}Postulación #{{ postulacion.pk }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>Detalle de Postulación</h2>
+    <a href="{% url 'postulaciones:lista' %}" class="btn btn-secondary">← Volver</a>
+</div>
+
+<div class="row g-4">
+    <div class="col-md-6">
+        <div class="card shadow-sm h-100">
+            <div class="card-header"><strong>Información general</strong></div>
+            <div class="card-body">
+                <dl class="row mb-0">
+                    <dt class="col-sm-5">Convocatoria</dt>
+                    <dd class="col-sm-7">{{ postulacion.convocatoria.nombre }}</dd>
+                    <dt class="col-sm-5">Beca</dt>
+                    <dd class="col-sm-7">{{ postulacion.beca.nombre }}</dd>
+                    <dt class="col-sm-5">Estado</dt>
+                    <dd class="col-sm-7"><strong>{{ postulacion.get_estado_display }}</strong></dd>
+                    <dt class="col-sm-5">Creada</dt>
+                    <dd class="col-sm-7">{{ postulacion.fecha_creacion|date:"d/m/Y H:i" }}</dd>
+                    {% if postulacion.fecha_envio %}
+                    <dt class="col-sm-5">Enviada</dt>
+                    <dd class="col-sm-7">{{ postulacion.fecha_envio|date:"d/m/Y H:i" }}</dd>
+                    {% endif %}
+                    {% if postulacion.observaciones_identidad %}
+                    <dt class="col-sm-5">Obs. Identidad</dt>
+                    <dd class="col-sm-7">{{ postulacion.observaciones_identidad }}</dd>
+                    {% endif %}
+                </dl>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="card shadow-sm h-100">
+            <div class="card-header"><strong>Documentos</strong></div>
+            <div class="card-body">
+                {% if postulacion.documentos.all %}
+                <ul class="list-group list-group-flush">
+                    {% for doc in postulacion.documentos.all %}
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        {{ doc.tipo_documento.nombre }}
+                        {% if doc.validado is None %}
+                            <span class="badge bg-secondary">Pendiente</span>
+                        {% elif doc.validado %}
+                            <span class="badge bg-success">Aprobado</span>
+                        {% else %}
+                            <span class="badge bg-danger">Rechazado</span>
+                        {% endif %}
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <p class="text-muted mb-0">Sin documentos requeridos aún.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if postulacion.estado == 'BORRADOR' %}
+<div class="mt-4">
+    <form method="post" action="{% url 'postulaciones:enviar' pk=postulacion.pk %}">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-success btn-lg"
+                onclick="return confirm('¿Confirmar envío de la postulación?')">
+            Enviar Postulación
+        </button>
+    </form>
+    <p class="text-muted mt-2 small">Una vez enviada, no podrás modificarla.</p>
+</div>
+{% endif %}
+{% endblock %}

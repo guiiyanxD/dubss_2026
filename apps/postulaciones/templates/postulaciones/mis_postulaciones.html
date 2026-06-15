@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+
+{% block title %}Mis Postulaciones{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>Mis Postulaciones</h2>
+    <a href="{% url 'convocatorias:lista' %}" class="btn btn-primary">Ver Convocatorias</a>
+</div>
+
+{% if postulaciones %}
+<div class="table-responsive">
+    <table class="table table-hover align-middle">
+        <thead class="table-dark">
+            <tr>
+                <th>Convocatoria</th>
+                <th>Beca</th>
+                <th>Estado</th>
+                <th>Fecha envío</th>
+                <th>Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for p in postulaciones %}
+            <tr>
+                <td>{{ p.convocatoria.nombre }}</td>
+                <td>{{ p.beca.nombre }}</td>
+                <td>
+                    {% if p.estado == 'BORRADOR' %}
+                        <span class="badge bg-secondary">Borrador</span>
+                    {% elif p.estado == 'ENVIADA' %}
+                        <span class="badge bg-info text-dark">Enviada</span>
+                    {% elif p.estado == 'EN_REVISION' %}
+                        <span class="badge bg-warning text-dark">En Revisión</span>
+                    {% elif p.estado == 'APROBADA' %}
+                        <span class="badge bg-success">Aprobada</span>
+                    {% elif p.estado == 'PROCESADA' %}
+                        <span class="badge bg-primary">Procesada</span>
+                    {% elif p.estado == 'ADJUDICADA' %}
+                        <span class="badge bg-success">Adjudicada</span>
+                    {% elif p.estado == 'NO_ADJUDICADA' %}
+                        <span class="badge bg-secondary">No Adjudicada</span>
+                    {% elif p.estado == 'LISTA_ESPERA' %}
+                        <span class="badge bg-warning text-dark">Lista de Espera</span>
+                    {% else %}
+                        <span class="badge bg-danger">Rechazada</span>
+                    {% endif %}
+                </td>
+                <td>{{ p.fecha_envio|date:"d/m/Y"|default:"—" }}</td>
+                <td>
+                    <a href="{% url 'postulaciones:detalle' pk=p.pk %}" class="btn btn-sm btn-outline-primary">Ver</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="text-center py-5 text-muted">
+    <p class="fs-5">No tenés postulaciones registradas.</p>
+    <a href="{% url 'convocatorias:lista' %}" class="btn btn-primary">Ver convocatorias disponibles</a>
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+
+{% block title %}Cola de Revisión{% endblock %}
+
+{% block content %}
+<h2 class="mb-4">Cola de Revisión</h2>
+
+{% if postulaciones %}
+<div class="table-responsive">
+    <table class="table table-hover align-middle">
+        <thead class="table-dark">
+            <tr>
+                <th>#</th>
+                <th>Estudiante</th>
+                <th>Convocatoria</th>
+                <th>Beca</th>
+                <th>Estado</th>
+                <th>Fecha envío</th>
+                <th>Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for p in postulaciones %}
+            <tr>
+                <td>{{ p.pk }}</td>
+                <td>{{ p.estudiante.get_full_name }} <small class="text-muted">({{ p.estudiante.email }})</small></td>
+                <td>{{ p.convocatoria.nombre }}</td>
+                <td>{{ p.beca.nombre }}</td>
+                <td>
+                    {% if p.estado == 'ENVIADA' %}
+                        <span class="badge bg-info text-dark">Enviada</span>
+                    {% elif p.estado == 'EN_REVISION' %}
+                        <span class="badge bg-warning text-dark">En Revisión</span>
+                    {% endif %}
+                </td>
+                <td>{{ p.fecha_envio|date:"d/m/Y H:i"|default:"—" }}</td>
+                <td>
+                    <a href="{% url 'postulaciones:revision' pk=p.pk %}" class="btn btn-sm btn-primary">Revisar</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="text-center py-5 text-muted">
+    <p class="fs-5">No hay postulaciones pendientes de revisión.</p>
+</div>
+{% endif %}
+{% endblock %}

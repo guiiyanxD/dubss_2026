@@ -5,3 +5,6 @@ class PostulacionesConfig(AppConfig):
     default_auto_field = "django.db.models.BigAutoField"
     name = "apps.postulaciones"
     verbose_name = "Postulación y Documentación"
+
+    def ready(self):
+        from . import receivers  # noqa: F401

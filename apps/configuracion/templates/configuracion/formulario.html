@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% load crispy_forms_tags %}
+
+{% block title %}Formulario Socioeconómico{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card shadow-sm">
+            <div class="card-header bg-primary text-white">
+                <h4 class="mb-0">Formulario Socioeconómico</h4>
+            </div>
+            <div class="card-body">
+                {% if formulario and formulario.completado %}
+                <div class="alert alert-success">
+                    Formulario completado. Podés actualizarlo en cualquier momento.
+                    Última actualización: {{ formulario.fecha_actualizacion|date:"d/m/Y H:i" }}
+                </div>
+                {% else %}
+                <div class="alert alert-warning">
+                    Debés completar este formulario antes de poder postularte a una beca.
+                </div>
+                {% endif %}
+                <form method="post" novalidate>
+                    {% csrf_token %}
+                    {{ form|crispy }}
+                    <div class="d-flex justify-content-end gap-2 mt-3">
+                        <button type="submit" class="btn btn-primary">Guardar formulario</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
