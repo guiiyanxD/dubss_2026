@@ -1,4 +1,3 @@
-
-app_name = 'convocatorias'
+app_name = "convocatorias"
 
 urlpatterns = []

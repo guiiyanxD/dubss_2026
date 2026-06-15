@@ -7,8 +7,26 @@
     <div class="col-md-8 text-center py-5">
         <h1 class="display-5 fw-bold">Sistema de Gestión de Becas</h1>
         <p class="lead text-muted mt-3">Plataforma de gestión de convocatorias y postulaciones de becas universitarias.</p>
+
         {% if not user.is_authenticated %}
-        <a href="{% url 'account_login' %}" class="btn btn-primary btn-lg mt-3">Iniciar sesión</a>
+        <div class="mt-4 d-flex gap-3 justify-content-center">
+            <a href="{% url 'account_login' %}" class="btn btn-primary btn-lg">Iniciar sesión</a>
+            <a href="{% url 'acceso:registro' %}" class="btn btn-outline-secondary btn-lg">Registrarme como estudiante</a>
+        </div>
+        {% else %}
+        <div class="mt-4">
+            {% with rol=user.get_rol %}
+            <p class="text-muted">Bienvenido, <strong>{{ user.get_full_name|default:user.email }}</strong> — {{ rol }}</p>
+            <div class="d-flex gap-3 justify-content-center flex-wrap">
+                {% if rol == 'Director' or user.is_superuser %}
+                <a href="{% url 'usuarios:lista' %}" class="btn btn-outline-dark">Gestión de usuarios</a>
+                {% endif %}
+                {% if rol == 'Estudiante' %}
+                <a href="#" class="btn btn-outline-primary">Mis postulaciones</a>
+                {% endif %}
+            </div>
+            {% endwith %}
+        </div>
         {% endif %}
     </div>
 </div>

@@ -2,6 +2,6 @@ from django.apps import AppConfig
 
 
 class ConvocatoriasConfig(AppConfig):
-    default_auto_field = 'django.db.models.BigAutoField'
-    name = 'apps.convocatorias'
-    verbose_name = 'Convocatorias y Catálogos'
+    default_auto_field = "django.db.models.BigAutoField"
+    name = "apps.convocatorias"
+    verbose_name = "Convocatorias y Catálogos"

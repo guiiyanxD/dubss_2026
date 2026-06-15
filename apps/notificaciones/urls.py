@@ -1,4 +1,3 @@
-
-app_name = 'notificaciones'
+app_name = "notificaciones"
 
 urlpatterns = []

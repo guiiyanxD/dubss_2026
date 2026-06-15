@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+
+{% block title %}Roles del Sistema{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>Roles del Sistema</h2>
+    <a href="{% url 'usuarios:lista' %}" class="btn btn-outline-secondary btn-sm">← Volver a usuarios</a>
+</div>
+
+{% for grupo, miembros in grupos_con_miembros %}
+<div class="card shadow-sm mb-3">
+    <div class="card-header fw-semibold">{{ grupo.name }}</div>
+    <div class="card-body">
+        {% if miembros %}
+        <ul class="list-unstyled mb-0">
+            {% for u in miembros %}
+            <li>{{ u.get_full_name|default:u.email }} <span class="text-muted small">({{ u.email }})</span></li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <p class="text-muted mb-0">Sin miembros asignados.</p>
+        {% endif %}
+    </div>
+</div>
+{% empty %}
+<p class="text-muted">No hay grupos definidos en el sistema.</p>
+{% endfor %}
+{% endblock %}

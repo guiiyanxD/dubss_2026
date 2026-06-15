@@ -1,0 +1,62 @@
+from django.contrib.auth.models import Group
+from django.db import transaction
+
+from .exceptions import (
+    ContrasenasNoCoincidenceError,
+    EmailYaRegistradoError,
+    LegajoYaRegistradoError,
+)
+from .models import PerfilEstudiante, Usuario
+
+
+@transaction.atomic
+def autorregistrar_estudiante(
+    *, email, password1, password2, first_name, last_name, legajo, carrera, anio_ingreso
+):
+    """Registra un nuevo estudiante con su perfil académico básico.
+
+    Args:
+        email: Dirección de correo electrónico única.
+        password1: Contraseña elegida.
+        password2: Confirmación de contraseña.
+        first_name: Nombre del estudiante.
+        last_name: Apellido del estudiante.
+        legajo: Número de legajo universitario único.
+        carrera: Nombre de la carrera.
+        anio_ingreso: Año de ingreso a la universidad.
+
+    Returns:
+        El Usuario recién creado con perfil de estudiante y grupo asignado.
+
+    Raises:
+        ContrasenasNoCoincidenceError: Si password1 != password2.
+        EmailYaRegistradoError: Si el email ya existe en el sistema.
+        LegajoYaRegistradoError: Si el legajo ya está registrado.
+    """
+    if password1 != password2:
+        raise ContrasenasNoCoincidenceError("Las contraseñas no coinciden.")
+
+    if Usuario.objects.filter(email=email).exists():
+        raise EmailYaRegistradoError(f"El email {email} ya está registrado.")
+
+    if PerfilEstudiante.objects.filter(legajo=legajo).exists():
+        raise LegajoYaRegistradoError(f"El legajo {legajo} ya está registrado.")
+
+    usuario = Usuario.objects.create_user(
+        email=email,
+        password=password1,
+        first_name=first_name,
+        last_name=last_name,
+    )
+
+    PerfilEstudiante.objects.create(
+        usuario=usuario,
+        legajo=legajo,
+        carrera=carrera,
+        anio_ingreso=anio_ingreso,
+    )
+
+    grupo_estudiante = Group.objects.get(name="Estudiante")
+    usuario.groups.add(grupo_estudiante)
+
+    return usuario
