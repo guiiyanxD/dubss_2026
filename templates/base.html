@@ -16,10 +16,38 @@
             <span class="navbar-toggler-icon"></span>
         </button>
         <div class="collapse navbar-collapse" id="navMenu">
+            {% if user.is_authenticated %}
+            <ul class="navbar-nav me-auto">
+                <li class="nav-item">
+                    <a class="nav-link" href="{% url 'convocatorias:lista' %}">Convocatorias</a>
+                </li>
+                {% with rol=user.get_rol %}
+                {% if rol == 'Director' or user.is_superuser %}
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">Administración</a>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" href="{% url 'usuarios:lista' %}">Usuarios</a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item" href="{% url 'convocatorias:becas-lista' %}">Catálogo de Becas</a></li>
+                        <li><a class="dropdown-item" href="{% url 'convocatorias:documentos-lista' %}">Tipos de Documento</a></li>
+                    </ul>
+                </li>
+                {% elif rol == 'Operador' %}
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">Catálogos</a>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" href="{% url 'convocatorias:becas-lista' %}">Becas</a></li>
+                        <li><a class="dropdown-item" href="{% url 'convocatorias:documentos-lista' %}">Tipos de Documento</a></li>
+                    </ul>
+                </li>
+                {% endif %}
+                {% endwith %}
+            </ul>
+            {% endif %}
             <ul class="navbar-nav ms-auto">
                 {% if user.is_authenticated %}
                     <li class="nav-item">
-                        <span class="nav-link text-light">{{ user.email }}</span>
+                        <span class="nav-link text-light">{{ user.get_full_name|default:user.email }}</span>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link" href="{% url 'account_logout' %}">Cerrar sesión</a>

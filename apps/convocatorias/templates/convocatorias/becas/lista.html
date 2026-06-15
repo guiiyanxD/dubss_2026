@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+
+{% block title %}Becas{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>Catálogo de Becas</h2>
+    <div class="d-flex gap-2">
+        <a href="{% url 'convocatorias:becas-crear' %}" class="btn btn-primary">+ Nueva beca</a>
+        <a href="{% url 'convocatorias:lista' %}" class="btn btn-outline-secondary btn-sm">← Convocatorias</a>
+    </div>
+</div>
+
+<div class="card shadow-sm">
+    <div class="table-responsive">
+        <table class="table table-hover mb-0 align-middle">
+            <thead class="table-dark">
+                <tr>
+                    <th>Nombre</th>
+                    <th>Descripción</th>
+                    <th>Estado</th>
+                    <th class="text-end">Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for beca in becas %}
+                <tr>
+                    <td>{{ beca.nombre }}</td>
+                    <td class="text-muted small">{{ beca.descripcion|truncatewords:15|default:"—" }}</td>
+                    <td>
+                        {% if beca.activa %}
+                            <span class="badge bg-success">Activa</span>
+                        {% else %}
+                            <span class="badge bg-secondary">Inactiva</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-end">
+                        <a href="{% url 'convocatorias:becas-editar' beca.pk %}" class="btn btn-sm btn-outline-primary">Editar</a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="4" class="text-center text-muted py-4">No hay becas registradas.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

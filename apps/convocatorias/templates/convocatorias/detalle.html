@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+
+{% block title %}{{ convocatoria.nombre }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-start mb-4">
+    <div>
+        <h2>{{ convocatoria.nombre }}</h2>
+        {% if convocatoria.estado == 'BORRADOR' %}
+            <span class="badge bg-secondary fs-6">Borrador</span>
+        {% elif convocatoria.estado == 'PUBLICADA' %}
+            <span class="badge bg-success fs-6">Publicada</span>
+        {% else %}
+            <span class="badge bg-dark fs-6">Cerrada</span>
+        {% endif %}
+    </div>
+    <div class="d-flex gap-2">
+        <a href="{% url 'convocatorias:lista' %}" class="btn btn-outline-secondary btn-sm">← Volver</a>
+        {% if convocatoria.estado == 'BORRADOR' %}
+        <a href="{% url 'convocatorias:editar' convocatoria.pk %}" class="btn btn-outline-primary btn-sm">Editar</a>
+        <form method="post" action="{% url 'convocatorias:publicar' convocatoria.pk %}" class="d-inline">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-success btn-sm"
+                onclick="return confirm('¿Publicar esta convocatoria?')">Publicar</button>
+        </form>
+        {% elif convocatoria.estado == 'PUBLICADA' %}
+        <form method="post" action="{% url 'convocatorias:cerrar' convocatoria.pk %}" class="d-inline">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-danger btn-sm"
+                onclick="return confirm('¿Cerrar esta convocatoria manualmente?')">Cerrar</button>
+        </form>
+        {% endif %}
+    </div>
+</div>
+
+<div class="row g-4">
+    <div class="col-md-8">
+        {% if convocatoria.descripcion %}
+        <div class="card shadow-sm mb-3">
+            <div class="card-body">
+                <h6 class="text-muted">Descripción</h6>
+                <p class="mb-0">{{ convocatoria.descripcion }}</p>
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="card shadow-sm mb-3">
+            <div class="card-body">
+                <h6 class="text-muted mb-3">Becas disponibles</h6>
+                {% if convocatoria.becas.all %}
+                <ul class="list-unstyled mb-0">
+                    {% for beca in convocatoria.becas.all %}
+                    <li class="mb-1"><span class="badge bg-primary-subtle text-primary-emphasis">{{ beca.nombre }}</span></li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <p class="text-muted mb-0">Sin becas asignadas.</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <h6 class="text-muted mb-3">Documentos requeridos</h6>
+                {% if convocatoria.documentos_requeridos.all %}
+                <ul class="list-group list-group-flush">
+                    {% for doc in convocatoria.documentos_requeridos.all %}
+                    <li class="list-group-item px-0">{{ doc.nombre }}</li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <p class="text-muted mb-0">Sin documentos requeridos.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <h6 class="text-muted">Período</h6>
+                <p class="mb-1"><strong>Apertura:</strong><br>{{ convocatoria.fecha_apertura|date:"d/m/Y H:i" }}</p>
+                <p class="mb-0"><strong>Cierre:</strong><br>{{ convocatoria.fecha_cierre|date:"d/m/Y H:i" }}</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

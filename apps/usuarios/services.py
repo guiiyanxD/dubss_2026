@@ -85,6 +85,31 @@ def listar_usuarios(*, excluir_pk=None):
 
 
 @transaction.atomic
+def editar_usuario(*, usuario, first_name, last_name, rol):
+    """Actualiza nombre, apellido y rol de un usuario existente.
+
+    Args:
+        usuario: Instancia de Usuario a editar.
+        first_name: Nuevo nombre.
+        last_name: Nuevo apellido.
+        rol: Nuevo rol (cualquiera de los roles válidos).
+
+    Returns:
+        El Usuario modificado.
+
+    Raises:
+        RolInvalidoError: Si el rol no es válido.
+    """
+    if rol not in ROLES_VALIDOS:
+        raise RolInvalidoError(f"El rol '{rol}' no es válido.")
+    usuario.first_name = first_name
+    usuario.last_name = last_name
+    usuario.save(update_fields=["first_name", "last_name"])
+    asignar_rol(usuario=usuario, rol=rol)
+    return usuario
+
+
+@transaction.atomic
 def activar_usuario(*, usuario):
     """Activa un usuario previamente desactivado."""
     usuario.is_active = True

@@ -9,6 +9,7 @@ urlpatterns = [
     path("accounts/", include("allauth.urls")),
     path("acceso/", include("apps.acceso.urls", namespace="acceso")),
     path("usuarios/", include("apps.usuarios.urls", namespace="usuarios")),
+    path("convocatorias/", include("apps.convocatorias.urls", namespace="convocatorias")),
     path("", RedirectView.as_view(pattern_name="acceso:inicio", permanent=False)),
 ]
 

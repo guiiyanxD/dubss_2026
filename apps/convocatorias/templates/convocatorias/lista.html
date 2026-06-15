@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+
+{% block title %}Convocatorias{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>Convocatorias</h2>
+    {% if not es_estudiante %}
+    <div class="d-flex gap-2">
+        <a href="{% url 'convocatorias:crear' %}" class="btn btn-primary">+ Nueva</a>
+        <a href="{% url 'convocatorias:becas-lista' %}" class="btn btn-outline-secondary btn-sm">Becas</a>
+        <a href="{% url 'convocatorias:documentos-lista' %}" class="btn btn-outline-secondary btn-sm">Documentos</a>
+    </div>
+    {% endif %}
+</div>
+
+{% if convocatorias %}
+<div class="row g-3">
+    {% for c in convocatorias %}
+    <div class="col-md-6 col-lg-4">
+        <div class="card h-100 shadow-sm">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <h5 class="card-title mb-0">{{ c.nombre }}</h5>
+                    {% if c.estado == 'BORRADOR' %}
+                        <span class="badge bg-secondary">Borrador</span>
+                    {% elif c.estado == 'PUBLICADA' %}
+                        <span class="badge bg-success">Publicada</span>
+                    {% else %}
+                        <span class="badge bg-dark">Cerrada</span>
+                    {% endif %}
+                </div>
+                {% if c.descripcion %}
+                <p class="card-text text-muted small">{{ c.descripcion|truncatewords:20 }}</p>
+                {% endif %}
+                <p class="card-text small mb-1">
+                    <strong>Apertura:</strong> {{ c.fecha_apertura|date:"d/m/Y H:i" }}
+                </p>
+                <p class="card-text small">
+                    <strong>Cierre:</strong> {{ c.fecha_cierre|date:"d/m/Y H:i" }}
+                </p>
+            </div>
+            <div class="card-footer bg-transparent">
+                <a href="{% url 'convocatorias:detalle' c.pk %}" class="btn btn-sm btn-outline-primary">Ver detalle</a>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="text-center text-muted py-5">
+    <p>No hay convocatorias disponibles.</p>
+    {% if not es_estudiante %}
+    <a href="{% url 'convocatorias:crear' %}" class="btn btn-primary">Crear la primera</a>
+    {% endif %}
+</div>
+{% endif %}
+{% endblock %}
