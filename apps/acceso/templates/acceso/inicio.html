@@ -1,33 +1,950 @@
-{% extends "base.html" %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <title>DUBS — Dirección Universitaria de Bienestar Social | UAGRM</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <style>
+    :root {
+      --vino: #880000;
+      --vino-dark: #660000;
+      --azul: #2a3964;
+      --perla: #f8f6f3;
+    }
 
-{% block title %}Inicio{% endblock %}
+    html { scroll-behavior: smooth; }
 
-{% block content %}
-<div class="row justify-content-center">
-    <div class="col-md-8 text-center py-5">
-        <h1 class="display-5 fw-bold">Sistema de Gestión de Becas</h1>
-        <p class="lead text-muted mt-3">Plataforma de gestión de convocatorias y postulaciones de becas universitarias.</p>
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: #fff;
+    }
 
-        {% if not user.is_authenticated %}
-        <div class="mt-4 d-flex gap-3 justify-content-center">
-            <a href="{% url 'account_login' %}" class="btn btn-primary btn-lg">Iniciar sesión</a>
-            <a href="{% url 'acceso:registro' %}" class="btn btn-outline-secondary btn-lg">Registrarme como estudiante</a>
-        </div>
+    /* ── Navbar ── */
+    .navbar-institucional {
+      background: var(--vino);
+      position: sticky;
+      top: 0;
+      z-index: 1030;
+      box-shadow: 0 2px 8px rgba(0,0,0,.25);
+    }
+    .navbar-institucional .navbar-brand {
+      color: #fff;
+      font-weight: 700;
+      font-size: 1.15rem;
+      letter-spacing: .02em;
+    }
+    .navbar-institucional .nav-link {
+      color: rgba(255,255,255,.85) !important;
+      font-size: .9rem;
+      transition: color .2s;
+    }
+    .navbar-institucional .nav-link:hover { color: #fff !important; }
+    .navbar-institucional .navbar-toggler { border-color: rgba(255,255,255,.4); }
+    .navbar-institucional .navbar-toggler-icon {
+      background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='rgba%28255,255,255,.8%29' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e");
+    }
+    .btn-login {
+      background: #fff;
+      color: var(--vino);
+      font-weight: 600;
+      border: none;
+      border-radius: 50px;
+      padding: .35rem 1.2rem;
+      font-size: .88rem;
+      transition: background .2s, color .2s;
+    }
+    .btn-login:hover { background: #f0d0d0; color: var(--vino-dark); }
+
+    /* ── Hero ── */
+    #inicio {
+      min-height: 100vh;
+      background: linear-gradient(135deg, var(--vino) 0%, var(--vino-dark) 50%, var(--azul) 100%);
+      display: flex;
+      align-items: center;
+      position: relative;
+      overflow: hidden;
+    }
+    #inicio::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.04'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+    }
+    .hero-badge {
+      display: inline-block;
+      background: rgba(255,255,255,.15);
+      color: #fff;
+      border: 1px solid rgba(255,255,255,.3);
+      border-radius: 50px;
+      padding: .3rem 1rem;
+      font-size: .8rem;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      margin-bottom: 1.5rem;
+    }
+    .hero-title {
+      font-size: clamp(2rem, 5vw, 3.5rem);
+      font-weight: 800;
+      color: #fff;
+      line-height: 1.15;
+    }
+    .hero-subtitle {
+      font-size: clamp(1rem, 2.5vw, 1.25rem);
+      color: rgba(255,255,255,.8);
+      max-width: 600px;
+    }
+    .btn-hero-primary {
+      background: #fff;
+      color: var(--vino);
+      font-weight: 700;
+      border-radius: 50px;
+      padding: .75rem 2rem;
+      border: none;
+      font-size: 1rem;
+      transition: transform .2s, box-shadow .2s;
+    }
+    .btn-hero-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px rgba(0,0,0,.2);
+      color: var(--vino-dark);
+    }
+    .btn-hero-outline {
+      color: #fff;
+      border: 2px solid rgba(255,255,255,.6);
+      border-radius: 50px;
+      padding: .75rem 2rem;
+      font-weight: 600;
+      font-size: 1rem;
+      background: transparent;
+      transition: background .2s, border-color .2s;
+    }
+    .btn-hero-outline:hover {
+      background: rgba(255,255,255,.1);
+      border-color: #fff;
+      color: #fff;
+    }
+    .hero-stats {
+      display: flex;
+      gap: 2.5rem;
+      margin-top: 3rem;
+    }
+    .hero-stat-number {
+      font-size: 2rem;
+      font-weight: 800;
+      color: #fff;
+      line-height: 1;
+    }
+    .hero-stat-label {
+      font-size: .8rem;
+      color: rgba(255,255,255,.7);
+      text-transform: uppercase;
+      letter-spacing: .06em;
+    }
+
+    /* ── Sección genérica ── */
+    section { padding: 5rem 0; }
+    .section-label {
+      font-size: .78rem;
+      font-weight: 700;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      color: var(--vino);
+      margin-bottom: .5rem;
+    }
+    .section-title {
+      font-size: clamp(1.6rem, 3.5vw, 2.4rem);
+      font-weight: 800;
+      color: #1a1a2e;
+      line-height: 1.2;
+    }
+    .section-divider {
+      width: 48px;
+      height: 4px;
+      background: var(--vino);
+      border-radius: 2px;
+      margin: 1rem 0 1.5rem;
+    }
+
+    /* ── Nosotros ── */
+    #nosotros { background: var(--perla); }
+    .mision-card {
+      background: #fff;
+      border-radius: 16px;
+      padding: 2rem;
+      height: 100%;
+      border-left: 5px solid var(--vino);
+      box-shadow: 0 4px 20px rgba(0,0,0,.06);
+    }
+    .vision-card {
+      background: #fff;
+      border-radius: 16px;
+      padding: 2rem;
+      height: 100%;
+      border-left: 5px solid var(--azul);
+      box-shadow: 0 4px 20px rgba(0,0,0,.06);
+    }
+    .mv-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.4rem;
+      margin-bottom: 1rem;
+    }
+    .obj-card {
+      background: #fff;
+      border-radius: 12px;
+      padding: 1.25rem;
+      border: 1px solid #e8e0e0;
+      display: flex;
+      align-items: flex-start;
+      gap: .75rem;
+      transition: box-shadow .25s, transform .25s;
+    }
+    .obj-card:hover {
+      box-shadow: 0 6px 20px rgba(136,0,0,.12);
+      transform: translateY(-2px);
+    }
+    .obj-icon {
+      width: 36px;
+      height: 36px;
+      min-width: 36px;
+      border-radius: 8px;
+      background: #f0d0d0;
+      color: var(--vino);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1rem;
+    }
+
+    /* ── Becas (sección principal) ── */
+    #becas { background: #fff; }
+    .becas-highlight {
+      background: linear-gradient(135deg, var(--vino), var(--azul));
+      border-radius: 20px;
+      padding: 2.5rem;
+      color: #fff;
+      margin-bottom: 3rem;
+    }
+    .beca-card {
+      border-radius: 16px;
+      border: 1px solid #e8e0e0;
+      overflow: hidden;
+      height: 100%;
+      transition: box-shadow .3s, transform .3s;
+    }
+    .beca-card:hover {
+      box-shadow: 0 12px 32px rgba(136,0,0,.15);
+      transform: translateY(-4px);
+    }
+    .beca-card-header {
+      background: var(--vino);
+      color: #fff;
+      padding: 1.25rem 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: .75rem;
+    }
+    .beca-card-header i { font-size: 1.5rem; }
+    .beca-card-body { padding: 1.25rem 1.5rem; }
+    .beca-card-body p { font-size: .9rem; color: #555; margin: 0; }
+
+    .como-postular {
+      background: var(--perla);
+      border-radius: 20px;
+      padding: 2.5rem;
+      margin-top: 3rem;
+    }
+    .paso {
+      display: flex;
+      align-items: flex-start;
+      gap: 1.25rem;
+      padding: 1rem 0;
+    }
+    .paso-num {
+      width: 44px;
+      height: 44px;
+      min-width: 44px;
+      border-radius: 50%;
+      background: var(--vino);
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 1.1rem;
+    }
+    .paso-content h6 { font-weight: 700; color: #1a1a2e; margin-bottom: .25rem; }
+    .paso-content p { font-size: .875rem; color: #666; margin: 0; }
+    .paso + .paso { border-top: 1px dashed #ddd; }
+
+    .requisitos-list li {
+      padding: .4rem 0;
+      border-bottom: 1px solid #f0e8e8;
+      font-size: .92rem;
+      color: #444;
+    }
+    .requisitos-list li:last-child { border-bottom: none; }
+
+    /* ── Servicios ── */
+    #servicios { background: var(--perla); }
+    .servicio-card {
+      background: #fff;
+      border-radius: 16px;
+      padding: 2rem 1.5rem;
+      height: 100%;
+      text-align: center;
+      border: 1px solid #e8e0e0;
+      transition: box-shadow .3s, transform .3s;
+    }
+    .servicio-card:hover {
+      box-shadow: 0 10px 28px rgba(42,57,100,.15);
+      transform: translateY(-4px);
+    }
+    .servicio-icon-wrap {
+      width: 64px;
+      height: 64px;
+      border-radius: 18px;
+      background: linear-gradient(135deg, var(--vino), var(--azul));
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.8rem;
+      margin: 0 auto 1.25rem;
+    }
+    .servicio-card h5 { font-weight: 700; color: #1a1a2e; font-size: 1rem; margin-bottom: .5rem; }
+    .servicio-card p { font-size: .85rem; color: #666; margin: 0; }
+    .servicio-items { margin-top: .75rem; text-align: left; }
+    .servicio-items li {
+      font-size: .82rem;
+      color: #555;
+      padding: .2rem 0;
+    }
+
+    /* ── Contacto ── */
+    #contacto { background: #1a1a2e; color: #fff; }
+    .contacto-card {
+      background: rgba(255,255,255,.06);
+      border: 1px solid rgba(255,255,255,.12);
+      border-radius: 16px;
+      padding: 2rem 1.5rem;
+      height: 100%;
+      text-align: center;
+      transition: background .25s;
+    }
+    .contacto-card:hover { background: rgba(255,255,255,.1); }
+    .contacto-icon {
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      background: var(--vino);
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.4rem;
+      margin: 0 auto 1rem;
+    }
+    .contacto-card h5 { color: rgba(255,255,255,.6); font-size: .8rem; text-transform: uppercase; letter-spacing: .1em; margin-bottom: .5rem; }
+    .contacto-card p { color: #fff; font-weight: 600; margin: 0; font-size: .95rem; }
+
+    /* ── Footer ── */
+    footer {
+      background: #111;
+      color: rgba(255,255,255,.5);
+      padding: 2rem 0;
+      font-size: .82rem;
+      text-align: center;
+    }
+    footer a { color: rgba(255,255,255,.6); text-decoration: none; }
+    footer a:hover { color: #fff; }
+
+    /* ── Animaciones reveal ── */
+    .reveal {
+      opacity: 0;
+      transform: translateY(32px);
+      transition: opacity .65s ease, transform .65s ease;
+    }
+    .reveal.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    .reveal-delay-1 { transition-delay: .1s; }
+    .reveal-delay-2 { transition-delay: .2s; }
+    .reveal-delay-3 { transition-delay: .3s; }
+    .reveal-delay-4 { transition-delay: .4s; }
+    .reveal-delay-5 { transition-delay: .5s; }
+
+    /* El hero está visible de entrada */
+    .hero-content { opacity: 0; animation: fadeInUp .9s ease .3s forwards; }
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(40px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ════════════════════════════════ NAVBAR ════════════════════════════════ -->
+<nav class="navbar navbar-expand-lg navbar-institucional">
+  <div class="container">
+    <a class="navbar-brand" href="#inicio">
+      <i class="bi bi-mortarboard-fill me-2"></i>DUBS <span style="opacity:.5;font-weight:400;">· UAGRM</span>
+    </a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navMain">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+    <div class="collapse navbar-collapse" id="navMain">
+      <ul class="navbar-nav mx-auto gap-lg-1">
+        <li class="nav-item"><a class="nav-link" href="#inicio">Inicio</a></li>
+        <li class="nav-item"><a class="nav-link" href="#nosotros">Nosotros</a></li>
+        <li class="nav-item"><a class="nav-link" href="#becas">Becas</a></li>
+        <li class="nav-item"><a class="nav-link" href="#servicios">Servicios</a></li>
+        <li class="nav-item"><a class="nav-link" href="#contacto">Contacto</a></li>
+      </ul>
+      <div class="d-flex align-items-center mt-3 mt-lg-0">
+        {% if user.is_authenticated %}
+          <a href="{% url 'acceso:inicio' %}" class="btn-login">
+            <i class="bi bi-grid-fill me-1"></i>Ir al Sistema
+          </a>
         {% else %}
-        <div class="mt-4">
-            {% with rol=user.get_rol %}
-            <p class="text-muted">Bienvenido, <strong>{{ user.get_full_name|default:user.email }}</strong> — {{ rol }}</p>
-            <div class="d-flex gap-3 justify-content-center flex-wrap">
-                {% if rol == 'Director' or user.is_superuser %}
-                <a href="{% url 'usuarios:lista' %}" class="btn btn-outline-dark">Gestión de usuarios</a>
-                {% endif %}
-                {% if rol == 'Estudiante' %}
-                <a href="#" class="btn btn-outline-primary">Mis postulaciones</a>
-                {% endif %}
-            </div>
-            {% endwith %}
-        </div>
+          <a href="{% url 'account_login' %}" class="btn-login">
+            <i class="bi bi-box-arrow-in-right me-1"></i>Iniciar Sesión
+          </a>
         {% endif %}
+      </div>
     </div>
-</div>
-{% endblock %}
+  </div>
+</nav>
+
+<!-- ════════════════════════════════ HERO ════════════════════════════════ -->
+<section id="inicio">
+  <div class="container position-relative" style="z-index:1;">
+    <div class="row align-items-center min-vh-100 py-5">
+      <div class="col-lg-7 hero-content">
+        <span class="hero-badge"><i class="bi bi-building me-1"></i> U.A.G.R.M. — Santa Cruz, Bolivia</span>
+        <h1 class="hero-title mb-3">
+          Dirección Universitaria<br>de Bienestar Social
+        </h1>
+        <p class="hero-subtitle mb-4">
+          Promovemos el desarrollo integral de la comunidad universitaria a través de becas, salud, cultura y deporte.
+        </p>
+        <div class="d-flex flex-wrap gap-3">
+          <a href="#becas" class="btn-hero-primary text-decoration-none">
+            <i class="bi bi-award-fill me-2"></i>Ver Becas Disponibles
+          </a>
+          {% if not user.is_authenticated %}
+          <a href="{% url 'acceso:registro' %}" class="btn-hero-outline text-decoration-none">
+            <i class="bi bi-person-plus me-2"></i>Registrarme
+          </a>
+          {% endif %}
+        </div>
+        <div class="hero-stats">
+          <div>
+            <div class="hero-stat-number">6+</div>
+            <div class="hero-stat-label">Tipos de Beca</div>
+          </div>
+          <div style="width:1px;background:rgba(255,255,255,.2);"></div>
+          <div>
+            <div class="hero-stat-number">5</div>
+            <div class="hero-stat-label">Áreas de Servicio</div>
+          </div>
+          <div style="width:1px;background:rgba(255,255,255,.2);"></div>
+          <div>
+            <div class="hero-stat-number">100%</div>
+            <div class="hero-stat-label">Online</div>
+          </div>
+        </div>
+      </div>
+      <div class="col-lg-5 d-none d-lg-flex justify-content-center" style="animation: fadeInUp .9s ease .6s both;">
+        <div style="font-size: 16rem; opacity: .12; color:#fff; line-height:1;">
+          <i class="bi bi-mortarboard"></i>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════════════ NOSOTROS ════════════════════════════ -->
+<section id="nosotros">
+  <div class="container">
+    <div class="text-center mb-5 reveal">
+      <p class="section-label">Quiénes somos</p>
+      <h2 class="section-title">Marco Institucional</h2>
+      <div class="section-divider mx-auto"></div>
+      <p class="text-muted" style="max-width:600px;margin:0 auto;">
+        La DUBS es la unidad responsable de planificar y ejecutar políticas de bienestar para toda la comunidad universitaria.
+      </p>
+    </div>
+
+    <div class="row g-4 mb-5">
+      <div class="col-md-6 reveal reveal-delay-1">
+        <div class="mision-card">
+          <div class="mv-icon" style="background:#f0d0d0;color:var(--vino);">
+            <i class="bi bi-bullseye"></i>
+          </div>
+          <h4 class="fw-bold mb-3" style="color:var(--vino);">Misión</h4>
+          <p class="text-muted" style="line-height:1.7;">
+            Somos la unidad que contribuye al bienestar social de la población de la UAGRM; órgano que planifica, programa y coordina acciones destinadas a promover el desarrollo bienestar cultural, psicosocial, cognoscitivo y social de los estudiantes, docentes y administrativos.
+          </p>
+        </div>
+      </div>
+      <div class="col-md-6 reveal reveal-delay-2">
+        <div class="vision-card">
+          <div class="mv-icon" style="background:#d0d8f0;color:var(--azul);">
+            <i class="bi bi-eye-fill"></i>
+          </div>
+          <h4 class="fw-bold mb-3" style="color:var(--azul);">Visión</h4>
+          <p class="text-muted" style="line-height:1.7;">
+            Ser una dirección que brinde servicio de calidad a la comunidad universitaria, velando por el bienestar social, psicológico, cultural y deportivo de la población universitaria, proyectándose como una de las mejores direcciones de la universidad.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <div class="reveal">
+      <h5 class="fw-bold mb-3" style="color:#1a1a2e;">Objetivos Institucionales</h5>
+    </div>
+    <div class="row g-3">
+      <div class="col-md-6 col-lg-4 reveal reveal-delay-1">
+        <div class="obj-card">
+          <div class="obj-icon"><i class="bi bi-heart-pulse-fill"></i></div>
+          <div>
+            <strong style="font-size:.88rem;">Salud Integral</strong>
+            <p style="font-size:.82rem;color:#777;margin:.15rem 0 0;">Velar por la salud mediante acciones preventivas y asistencia médica oportuna.</p>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-6 col-lg-4 reveal reveal-delay-2">
+        <div class="obj-card">
+          <div class="obj-icon"><i class="bi bi-people-fill"></i></div>
+          <div>
+            <strong style="font-size:.88rem;">Bienestar Socioeconómico</strong>
+            <p style="font-size:.82rem;color:#777;margin:.15rem 0 0;">Contribuir a la solución de problemas socio-económicos que obstaculizan el bienestar estudiantil.</p>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-6 col-lg-4 reveal reveal-delay-3">
+        <div class="obj-card">
+          <div class="obj-icon"><i class="bi bi-book-fill"></i></div>
+          <div>
+            <strong style="font-size:.88rem;">Formación Integral</strong>
+            <p style="font-size:.82rem;color:#777;margin:.15rem 0 0;">Promover la capacitación y la formación integral humana de la comunidad universitaria.</p>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-6 col-lg-4 reveal reveal-delay-1">
+        <div class="obj-card">
+          <div class="obj-icon"><i class="bi bi-trophy-fill"></i></div>
+          <div>
+            <strong style="font-size:.88rem;">Deporte</strong>
+            <p style="font-size:.82rem;color:#777;margin:.15rem 0 0;">Promover e incentivar las prácticas deportivas creando condiciones para todas las disciplinas.</p>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-6 col-lg-4 reveal reveal-delay-2">
+        <div class="obj-card">
+          <div class="obj-icon"><i class="bi bi-music-note-beamed"></i></div>
+          <div>
+            <strong style="font-size:.88rem;">Cultura</strong>
+            <p style="font-size:.82rem;color:#777;margin:.15rem 0 0;">Fomentar actividades culturales, festividades de arte, conciertos y exposiciones.</p>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-6 col-lg-4 reveal reveal-delay-3">
+        <div class="obj-card">
+          <div class="obj-icon"><i class="bi bi-award-fill"></i></div>
+          <div>
+            <strong style="font-size:.88rem;">Becas e Incentivos</strong>
+            <p style="font-size:.82rem;color:#777;margin:.15rem 0 0;">Planificar y ejecutar políticas de ayuda e incentivos económicos a los estudiantes.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════════════ BECAS ════════════════════════════════ -->
+<section id="becas">
+  <div class="container">
+    <div class="text-center mb-5 reveal">
+      <p class="section-label"><i class="bi bi-star-fill me-1"></i> Sección principal</p>
+      <h2 class="section-title">Becas Socioeconómicas</h2>
+      <div class="section-divider mx-auto"></div>
+    </div>
+
+    <div class="becas-highlight reveal">
+      <div class="row align-items-center g-3">
+        <div class="col-lg-8">
+          <h3 class="fw-bold mb-2" style="color:#fff;">¿Qué son las Becas Socioeconómicas?</h3>
+          <p style="color:rgba(255,255,255,.85);line-height:1.7;margin:0;">
+            Son beneficios económicos y en especie que la DUBS otorga a estudiantes regulares de la UAGRM que presentan necesidades económicas comprobadas. El objetivo es garantizar que ningún estudiante abandone su carrera por razones económicas. Para acceder, el estudiante debe completar un formulario socioeconómico y pasar por un proceso de evaluación y validación documental.
+          </p>
+        </div>
+        <div class="col-lg-4 text-lg-end text-center">
+          {% if not user.is_authenticated %}
+          <a href="{% url 'acceso:registro' %}" class="btn btn-light fw-bold px-4 py-2 rounded-pill">
+            <i class="bi bi-person-plus me-2"></i>Postular ahora
+          </a>
+          {% else %}
+          <a href="{% url 'account_login' %}" class="btn btn-light fw-bold px-4 py-2 rounded-pill">
+            <i class="bi bi-grid-fill me-2"></i>Ir al Sistema
+          </a>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Tipos de beca -->
+    <h4 class="fw-bold mb-4 reveal" style="color:#1a1a2e;">Tipos de Beca Disponibles</h4>
+    <div class="row g-4 mb-5">
+      <div class="col-sm-6 col-lg-4 reveal reveal-delay-1">
+        <div class="beca-card">
+          <div class="beca-card-header">
+            <i class="bi bi-cup-hot-fill"></i>
+            <h6 class="mb-0 fw-bold">Beca Comedor</h6>
+          </div>
+          <div class="beca-card-body">
+            <p>Acceso al comedor universitario con almuerzos subsidiados para estudiantes con necesidad económica comprobada.</p>
+          </div>
+        </div>
+      </div>
+      <div class="col-sm-6 col-lg-4 reveal reveal-delay-2">
+        <div class="beca-card">
+          <div class="beca-card-header" style="background:var(--azul);">
+            <i class="bi bi-briefcase-fill"></i>
+            <h6 class="mb-0 fw-bold">Beca Trabajo</h6>
+          </div>
+          <div class="beca-card-body">
+            <p>El estudiante realiza tareas de apoyo en dependencias universitarias y recibe una remuneración mensual.</p>
+          </div>
+        </div>
+      </div>
+      <div class="col-sm-6 col-lg-4 reveal reveal-delay-3">
+        <div class="beca-card">
+          <div class="beca-card-header">
+            <i class="bi bi-house-fill"></i>
+            <h6 class="mb-0 fw-bold">Beca Alojamiento</h6>
+          </div>
+          <div class="beca-card-body">
+            <p>Albergue universitario para estudiantes que provienen del interior del país y no cuentan con vivienda propia.</p>
+          </div>
+        </div>
+      </div>
+      <div class="col-sm-6 col-lg-4 reveal reveal-delay-1">
+        <div class="beca-card">
+          <div class="beca-card-header" style="background:var(--azul);">
+            <i class="bi bi-patch-check-fill"></i>
+            <h6 class="mb-0 fw-bold">Beca Titulación</h6>
+          </div>
+          <div class="beca-card-body">
+            <p>Apoyo económico para cubrir los costos del proceso de titulación y graduación del estudiante.</p>
+          </div>
+        </div>
+      </div>
+      <div class="col-sm-6 col-lg-4 reveal reveal-delay-2">
+        <div class="beca-card">
+          <div class="beca-card-header">
+            <i class="bi bi-car-front-fill"></i>
+            <h6 class="mb-0 fw-bold">Beca Taxis</h6>
+          </div>
+          <div class="beca-card-body">
+            <p>Subsidio de transporte para estudiantes con dificultades de movilidad hacia el campus universitario.</p>
+          </div>
+        </div>
+      </div>
+      <div class="col-sm-6 col-lg-4 reveal reveal-delay-3">
+        <div class="beca-card">
+          <div class="beca-card-header" style="background:var(--azul);">
+            <i class="bi bi-plus-circle-fill"></i>
+            <h6 class="mb-0 fw-bold">Otras Becas</h6>
+          </div>
+          <div class="beca-card-body">
+            <p>Becas especiales según reglamentación vigente: pre y postgrado, intercambio, y otras categorías institucionales.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Cómo postular + Requisitos -->
+    <div class="row g-4">
+      <div class="col-lg-7 reveal">
+        <div class="como-postular">
+          <h5 class="fw-bold mb-4" style="color:#1a1a2e;"><i class="bi bi-list-check me-2" style="color:var(--vino);"></i>¿Cómo postular?</h5>
+          <div class="paso">
+            <div class="paso-num">1</div>
+            <div class="paso-content">
+              <h6>Registrarse en el sistema</h6>
+              <p>Creá tu cuenta con tu correo institucional de la UAGRM.</p>
+            </div>
+          </div>
+          <div class="paso">
+            <div class="paso-num">2</div>
+            <div class="paso-content">
+              <h6>Completar formulario socioeconómico</h6>
+              <p>Llenás el formulario con tu situación familiar, económica y académica.</p>
+            </div>
+          </div>
+          <div class="paso">
+            <div class="paso-num">3</div>
+            <div class="paso-content">
+              <h6>Postular a la convocatoria</h6>
+              <p>Elegís la beca de tu interés dentro de una convocatoria activa y enviás tu postulación.</p>
+            </div>
+          </div>
+          <div class="paso">
+            <div class="paso-num">4</div>
+            <div class="paso-content">
+              <h6>Validación presencial de documentos</h6>
+              <p>Llevás la documentación física a la DUBS para su verificación por un operador.</p>
+            </div>
+          </div>
+          <div class="paso">
+            <div class="paso-num">5</div>
+            <div class="paso-content">
+              <h6>Evaluación y ranking</h6>
+              <p>El sistema procesa el formulario y genera un ranking. Recibirás notificación del resultado.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-lg-5 reveal reveal-delay-2">
+        <div class="p-4 border rounded-4 h-100" style="border-color:#e8e0e0!important;">
+          <h5 class="fw-bold mb-3" style="color:#1a1a2e;"><i class="bi bi-clipboard-check me-2" style="color:var(--vino);"></i>Requisitos generales</h5>
+          <ul class="list-unstyled requisitos-list">
+            <li><i class="bi bi-check-circle-fill me-2" style="color:var(--vino);"></i>Ser estudiante regular de la UAGRM</li>
+            <li><i class="bi bi-check-circle-fill me-2" style="color:var(--vino);"></i>Carnet de identidad vigente</li>
+            <li><i class="bi bi-check-circle-fill me-2" style="color:var(--vino);"></i>Libreta universitaria / libreta de inscripción</li>
+            <li><i class="bi bi-check-circle-fill me-2" style="color:var(--vino);"></i>Formulario socioeconómico completo</li>
+            <li><i class="bi bi-check-circle-fill me-2" style="color:var(--vino);"></i>Documentación de respaldo familiar</li>
+            <li><i class="bi bi-check-circle-fill me-2" style="color:var(--vino);"></i>No tener otra beca activa en la misma convocatoria</li>
+          </ul>
+          <div class="mt-4 p-3 rounded-3" style="background:#f0d0d0;">
+            <small class="text-muted d-block mb-2"><i class="bi bi-info-circle me-1"></i><strong>Importante:</strong></small>
+            <small style="color:#555;line-height:1.5;">La validación documental es presencial en las oficinas de la DUBS. La digitalización de documentos se realiza solo si la documentación es aprobada.</small>
+          </div>
+          <div class="mt-3">
+            {% if not user.is_authenticated %}
+            <a href="{% url 'acceso:registro' %}" class="btn w-100 fw-bold rounded-pill" style="background:var(--vino);color:#fff;">
+              <i class="bi bi-person-plus me-2"></i>Crear cuenta y postular
+            </a>
+            {% else %}
+            <a href="{% url 'account_login' %}" class="btn w-100 fw-bold rounded-pill" style="background:var(--vino);color:#fff;">
+              <i class="bi bi-grid-fill me-2"></i>Acceder al Sistema
+            </a>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════════════ SERVICIOS ════════════════════════════ -->
+<section id="servicios">
+  <div class="container">
+    <div class="text-center mb-5 reveal">
+      <p class="section-label">Lo que ofrecemos</p>
+      <h2 class="section-title">Otros Servicios</h2>
+      <div class="section-divider mx-auto"></div>
+      <p class="text-muted" style="max-width:550px;margin:0 auto;">
+        Además de las becas, la DUBS brinda una amplia gama de servicios para el bienestar universitario.
+      </p>
+    </div>
+
+    <div class="row g-4">
+      <div class="col-sm-6 col-lg-4 reveal reveal-delay-1">
+        <div class="servicio-card">
+          <div class="servicio-icon-wrap"><i class="bi bi-heart-pulse-fill"></i></div>
+          <h5>Seguro Universitario Estudiantil</h5>
+          <p>Atención médica básica para todos los estudiantes regulares.</p>
+          <ul class="list-unstyled servicio-items">
+            <li><i class="bi bi-dot"></i>Lunes a Viernes: 07:00 – 14:00</li>
+            <li><i class="bi bi-dot"></i>Consultas médicas</li>
+            <li><i class="bi bi-dot"></i>Requiere libreta + carnet</li>
+          </ul>
+        </div>
+      </div>
+      <div class="col-sm-6 col-lg-4 reveal reveal-delay-2">
+        <div class="servicio-card">
+          <div class="servicio-icon-wrap"><i class="bi bi-people-fill"></i></div>
+          <h5>Trabajo Social</h5>
+          <p>Orientación y apoyo psicosocial y pedagógico.</p>
+          <ul class="list-unstyled servicio-items">
+            <li><i class="bi bi-dot"></i>Orientación psicopedagógica</li>
+            <li><i class="bi bi-dot"></i>Orientación psicosocial</li>
+            <li><i class="bi bi-dot"></i>Gestión de becas socioeconómicas</li>
+          </ul>
+        </div>
+      </div>
+      <div class="col-sm-6 col-lg-4 reveal reveal-delay-3">
+        <div class="servicio-card">
+          <div class="servicio-icon-wrap"><i class="bi bi-trophy-fill"></i></div>
+          <h5>Deportes</h5>
+          <p>Fomento de la actividad física y competencias deportivas.</p>
+          <ul class="list-unstyled servicio-items">
+            <li><i class="bi bi-dot"></i>Información sobre eventos</li>
+            <li><i class="bi bi-dot"></i>Solicitud de material deportivo</li>
+            <li><i class="bi bi-dot"></i>Múltiples disciplinas</li>
+          </ul>
+        </div>
+      </div>
+      <div class="col-sm-6 col-lg-4 reveal reveal-delay-1">
+        <div class="servicio-card">
+          <div class="servicio-icon-wrap"><i class="bi bi-palette-fill"></i></div>
+          <h5>Cultura</h5>
+          <p>Actividades artísticas y culturales para la comunidad universitaria.</p>
+          <ul class="list-unstyled servicio-items">
+            <li><i class="bi bi-dot"></i>Eventos y festividades</li>
+            <li><i class="bi bi-dot"></i>Conciertos y exposiciones</li>
+            <li><i class="bi bi-dot"></i>Solicitud de material para eventos</li>
+          </ul>
+        </div>
+      </div>
+      <div class="col-sm-6 col-lg-4 reveal reveal-delay-2">
+        <div class="servicio-card">
+          <div class="servicio-icon-wrap"><i class="bi bi-info-circle-fill"></i></div>
+          <h5>Informaciones</h5>
+          <p>Orientación sobre trámites y procesos universitarios.</p>
+          <ul class="list-unstyled servicio-items">
+            <li><i class="bi bi-dot"></i>Becas internacionales</li>
+            <li><i class="bi bi-dot"></i>Carrera paralela y ruta académica</li>
+            <li><i class="bi bi-dot"></i>Seguimiento de trámites</li>
+          </ul>
+        </div>
+      </div>
+      <div class="col-sm-6 col-lg-4 reveal reveal-delay-3">
+        <div class="servicio-card" style="background:linear-gradient(135deg,var(--vino),var(--azul));border:none;">
+          <div class="servicio-icon-wrap" style="background:rgba(255,255,255,.2);"><i class="bi bi-question-circle-fill"></i></div>
+          <h5 style="color:#fff;">¿Necesitás ayuda?</h5>
+          <p style="color:rgba(255,255,255,.8);">Contactanos directamente para orientación personalizada sobre cualquier servicio.</p>
+          <a href="#contacto" class="btn btn-light btn-sm rounded-pill mt-2 fw-600">
+            <i class="bi bi-envelope me-1"></i>Ver contacto
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════════════ CONTACTO ════════════════════════════ -->
+<section id="contacto">
+  <div class="container">
+    <div class="text-center mb-5 reveal">
+      <p class="section-label" style="color:rgba(255,255,255,.6);">Estamos para ayudarte</p>
+      <h2 class="section-title" style="color:#fff;">Contacto</h2>
+      <div class="section-divider mx-auto"></div>
+      <p style="color:rgba(255,255,255,.65);max-width:500px;margin:0 auto;">
+        Encontranos en el campus universitario o escribinos por cualquiera de estos medios.
+      </p>
+    </div>
+
+    <div class="row g-4 mb-5">
+      <div class="col-md-4 reveal reveal-delay-1">
+        <div class="contacto-card">
+          <div class="contacto-icon"><i class="bi bi-geo-alt-fill"></i></div>
+          <h5>Dirección</h5>
+          <p>Ciudad Universitaria, UAGRM</p>
+          <p style="font-weight:400;color:rgba(255,255,255,.65);font-size:.85rem;margin-top:.4rem;">Lado del Comedor Universitario</p>
+        </div>
+      </div>
+      <div class="col-md-4 reveal reveal-delay-2">
+        <div class="contacto-card">
+          <div class="contacto-icon"><i class="bi bi-whatsapp"></i></div>
+          <h5>WhatsApp</h5>
+          <p>+591 61537017</p>
+          <a href="https://wa.me/59161537017" target="_blank" class="btn btn-sm rounded-pill mt-2" style="background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.25);font-size:.8rem;">
+            <i class="bi bi-box-arrow-up-right me-1"></i>Abrir chat
+          </a>
+        </div>
+      </div>
+      <div class="col-md-4 reveal reveal-delay-3">
+        <div class="contacto-card">
+          <div class="contacto-icon"><i class="bi bi-envelope-fill"></i></div>
+          <h5>Correo Electrónico</h5>
+          <p>dubs@uagrm.edu.bo</p>
+          <a href="mailto:dubs@uagrm.edu.bo" class="btn btn-sm rounded-pill mt-2" style="background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.25);font-size:.8rem;">
+            <i class="bi bi-send me-1"></i>Enviar correo
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <div class="text-center reveal">
+      <div class="d-inline-block p-4 rounded-4" style="background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);">
+        <p style="color:rgba(255,255,255,.6);margin:0;font-size:.85rem;">
+          <i class="bi bi-clock me-2"></i><strong style="color:rgba(255,255,255,.9);">Horario de atención:</strong>
+          Lunes a Viernes de 07:00 a 14:00
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════════════ FOOTER ════════════════════════════════ -->
+<footer>
+  <div class="container">
+    <div class="row align-items-center g-3">
+      <div class="col-md-4 text-md-start text-center">
+        <strong style="color:rgba(255,255,255,.8);">DUBS — UAGRM</strong><br>
+        Dirección Universitaria de Bienestar Social
+      </div>
+      <div class="col-md-4 text-center">
+        <a href="#inicio">Inicio</a> ·
+        <a href="#nosotros">Nosotros</a> ·
+        <a href="#becas">Becas</a> ·
+        <a href="#servicios">Servicios</a> ·
+        <a href="#contacto">Contacto</a>
+      </div>
+      <div class="col-md-4 text-md-end text-center">
+        Tel. (591)(3) 3365533 / 3365544<br>
+        Santa Cruz, Bolivia · © 2026 UAGRM
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+  // Animaciones de scroll con Intersection Observer
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('visible');
+      }
+    });
+  }, { threshold: 0.12 });
+
+  document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+
+  // Resaltar link activo del navbar según sección visible
+  const sections = document.querySelectorAll('section[id]');
+  const navLinks = document.querySelectorAll('.navbar-institucional .nav-link');
+
+  const sectionObserver = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        navLinks.forEach(link => {
+          link.style.color = '';
+          if (link.getAttribute('href') === '#' + entry.target.id) {
+            link.style.color = '#fff';
+            link.style.fontWeight = '600';
+          } else {
+            link.style.fontWeight = '';
+          }
+        });
+      }
+    });
+  }, { threshold: 0.4 });
+
+  sections.forEach(s => sectionObserver.observe(s));
+</script>
+
+</body>
+</html>

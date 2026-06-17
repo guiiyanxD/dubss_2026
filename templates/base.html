@@ -3,58 +3,190 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>{% block title %}Sistema de Becas{% endblock %} — Universidad</title>
+    <title>{% block title %}Sistema de Becas{% endblock %} — DUBS UAGRM</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --vino: #880000;
+            --vino-dark: #660000;
+            --azul: #2a3964;
+        }
+
+        /* ── Body ── */
+        body { background-color: #f8f6f3; }
+
+        /* ── Navbar vino ── */
+        .navbar-app {
+            background: linear-gradient(90deg, #880000 0%, #6a0000 100%);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, .25);
+        }
+        .navbar-app .navbar-brand { font-weight: 700; color: #fff !important; }
+        .navbar-app .nav-link { color: rgba(255, 255, 255, .85) !important; transition: color .15s; }
+        .navbar-app .nav-link:hover,
+        .navbar-app .nav-link.active { color: #fff !important; }
+        .navbar-app .navbar-toggler { border-color: rgba(255, 255, 255, .35); }
+        .navbar-app .navbar-toggler-icon {
+            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='rgba%28255,255,255,.8%29' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e");
+        }
+        .navbar-app .dropdown-menu {
+            border-top: 3px solid #880000;
+            border-radius: 0 0 6px 6px;
+        }
+        .navbar-app .dropdown-item:focus,
+        .navbar-app .dropdown-item:hover { color: #880000; }
+
+        /* ── Bootstrap primary → vino ── */
+        .btn-primary {
+            --bs-btn-bg: #880000;
+            --bs-btn-border-color: #880000;
+            --bs-btn-hover-bg: #660000;
+            --bs-btn-hover-border-color: #660000;
+            --bs-btn-active-bg: #550000;
+            --bs-btn-active-border-color: #550000;
+            --bs-btn-disabled-bg: #880000;
+            --bs-btn-disabled-border-color: #880000;
+            color: #fff;
+        }
+        .btn-outline-primary {
+            --bs-btn-color: #880000;
+            --bs-btn-border-color: #880000;
+            --bs-btn-hover-bg: #880000;
+            --bs-btn-hover-border-color: #880000;
+            --bs-btn-hover-color: #fff;
+            --bs-btn-active-bg: #660000;
+            --bs-btn-active-border-color: #660000;
+        }
+        .bg-primary { background-color: #880000 !important; }
+        .text-primary { color: #880000 !important; }
+        .border-primary { border-color: #880000 !important; }
+
+        /* ── Links generales ── */
+        a:not(.btn):not(.nav-link):not(.navbar-brand):not(.dropdown-item):not(.page-link):not(.list-group-item):not([class*="alert"]) {
+            color: #880000;
+        }
+        a:not(.btn):not(.nav-link):not(.navbar-brand):not(.dropdown-item):not(.page-link):not(.list-group-item):not([class*="alert"]):hover {
+            color: #660000;
+        }
+
+        /* ── Formularios ── */
+        .form-control:focus,
+        .form-select:focus,
+        .form-check-input:checked {
+            border-color: #880000;
+            box-shadow: 0 0 0 .2rem rgba(136, 0, 0, .2);
+        }
+        .form-check-input:checked { background-color: #880000; }
+
+        /* ── Paginación ── */
+        .page-link { color: #880000; }
+        .page-link:hover { color: #660000; }
+        .page-item.active .page-link {
+            background-color: #880000;
+            border-color: #880000;
+        }
+
+        /* ── List group ── */
+        .list-group-item.active {
+            background-color: #880000;
+            border-color: #880000;
+        }
+
+        /* ── Nav pills ── */
+        .nav-pills .nav-link.active { background-color: #880000; }
+
+        /* ── Tabla header → azul institucional ── */
+        .table > thead {
+            background-color: #2a3964;
+            color: #fff;
+        }
+        .table > thead th { border-color: #3a4f7a; }
+        .table-dark { --bs-table-bg: #2a3964; }
+
+        /* ── Alerts: preservar colores semánticos ── */
+        .alert-success { --bs-alert-color: #0a3622; --bs-alert-bg: #d1e7dd; }
+        .alert-danger  { --bs-alert-color: #58151c; --bs-alert-bg: #f8d7da; }
+        .alert-warning { --bs-alert-color: #664d03; --bs-alert-bg: #fff3cd; }
+        .alert-info    { --bs-alert-color: #055160; --bs-alert-bg: #cff4fc; }
+    </style>
     {% block extra_css %}{% endblock %}
 </head>
-<body class="bg-light">
+<body>
 
-<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+<nav class="navbar navbar-expand-lg navbar-dark navbar-app">
     <div class="container">
-        <a class="navbar-brand fw-bold" href="/">Sistema de Becas</a>
+        <a class="navbar-brand" href="/">
+            <i class="bi bi-mortarboard-fill me-2"></i>DUBS
+            <span style="opacity:.55; font-weight:400; font-size:.82rem;">Sistema de Becas</span>
+        </a>
         <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navMenu">
             <span class="navbar-toggler-icon"></span>
         </button>
         <div class="collapse navbar-collapse" id="navMenu">
             {% if user.is_authenticated %}
             <ul class="navbar-nav me-auto">
-                <li class="nav-item">
-                    <a class="nav-link" href="{% url 'convocatorias:lista' %}">Convocatorias</a>
-                </li>
                 {% with rol=user.get_rol %}
                 {% if rol == 'Director' or user.is_superuser %}
                 <li class="nav-item">
-                    <a class="nav-link" href="{% url 'postulaciones:cola-revision' %}">Cola de Revisión</a>
+                    <a class="nav-link" href="{% url 'postulaciones:cola-revision' %}">
+                        <i class="bi bi-inbox-fill me-1"></i>Cola de Revisión
+                    </a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link" href="{% url 'reportes:panel' %}">Reportes</a>
+                    <a class="nav-link" href="{% url 'reportes:panel' %}">
+                        <i class="bi bi-bar-chart-fill me-1"></i>Reportes
+                    </a>
                 </li>
                 <li class="nav-item dropdown">
-                    <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">Administración</a>
+                    <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">
+                        <i class="bi bi-grid-fill me-1"></i>Catálogo
+                    </a>
                     <ul class="dropdown-menu">
-                        <li><a class="dropdown-item" href="{% url 'usuarios:lista' %}">Usuarios</a></li>
-                        <li><hr class="dropdown-divider"></li>
-                        <li><a class="dropdown-item" href="{% url 'convocatorias:becas-lista' %}">Catálogo de Becas</a></li>
-                        <li><a class="dropdown-item" href="{% url 'convocatorias:documentos-lista' %}">Tipos de Documento</a></li>
+                        <li><a class="dropdown-item" href="{% url 'convocatorias:lista' %}"><i class="bi bi-megaphone me-2"></i>Convocatorias</a></li>
+                        <li><a class="dropdown-item" href="{% url 'convocatorias:becas-lista' %}"><i class="bi bi-award me-2"></i>Becas</a></li>
+                        <li><a class="dropdown-item" href="{% url 'convocatorias:documentos-lista' %}"><i class="bi bi-file-earmark-text me-2"></i>Tipos de Documento</a></li>
+                    </ul>
+                </li>
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">
+                        <i class="bi bi-people-fill me-1"></i>Administración
+                    </a>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" href="{% url 'usuarios:lista' %}"><i class="bi bi-person-lines-fill me-2"></i>Usuarios</a></li>
+                        <li><a class="dropdown-item" href="{% url 'usuarios:roles' %}"><i class="bi bi-shield-fill me-2"></i>Roles</a></li>
                     </ul>
                 </li>
                 {% elif rol == 'Operador' %}
                 <li class="nav-item">
-                    <a class="nav-link" href="{% url 'postulaciones:cola-revision' %}">Cola de Revisión</a>
+                    <a class="nav-link" href="{% url 'postulaciones:cola-revision' %}">
+                        <i class="bi bi-inbox-fill me-1"></i>Cola de Revisión
+                    </a>
                 </li>
                 <li class="nav-item dropdown">
-                    <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">Catálogos</a>
+                    <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">
+                        <i class="bi bi-grid-fill me-1"></i>Catálogo
+                    </a>
                     <ul class="dropdown-menu">
-                        <li><a class="dropdown-item" href="{% url 'convocatorias:becas-lista' %}">Becas</a></li>
-                        <li><a class="dropdown-item" href="{% url 'convocatorias:documentos-lista' %}">Tipos de Documento</a></li>
+                        <li><a class="dropdown-item" href="{% url 'convocatorias:lista' %}"><i class="bi bi-megaphone me-2"></i>Convocatorias</a></li>
+                        <li><a class="dropdown-item" href="{% url 'convocatorias:becas-lista' %}"><i class="bi bi-award me-2"></i>Becas</a></li>
+                        <li><a class="dropdown-item" href="{% url 'convocatorias:documentos-lista' %}"><i class="bi bi-file-earmark-text me-2"></i>Tipos de Documento</a></li>
                     </ul>
                 </li>
                 {% elif rol == 'Estudiante' %}
                 <li class="nav-item">
-                    <a class="nav-link" href="{% url 'postulaciones:lista' %}">Mis Postulaciones</a>
+                    <a class="nav-link" href="{% url 'convocatorias:lista' %}">
+                        <i class="bi bi-megaphone me-1"></i>Convocatorias
+                    </a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link" href="{% url 'configuracion:formulario' %}">Mi Formulario</a>
+                    <a class="nav-link" href="{% url 'postulaciones:lista' %}">
+                        <i class="bi bi-send-fill me-1"></i>Mis Postulaciones
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="{% url 'configuracion:formulario' %}">
+                        <i class="bi bi-file-person-fill me-1"></i>Mi Formulario
+                    </a>
                 </li>
                 {% endif %}
                 {% endwith %}
@@ -63,14 +195,20 @@
             <ul class="navbar-nav ms-auto">
                 {% if user.is_authenticated %}
                     <li class="nav-item">
-                        <span class="nav-link text-light">{{ user.get_full_name|default:user.email }}</span>
+                        <span class="nav-link" style="color:rgba(255,255,255,.7)!important;">
+                            <i class="bi bi-person-circle me-1"></i>{{ user.get_full_name|default:user.email }}
+                        </span>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="{% url 'account_logout' %}">Cerrar sesión</a>
+                        <a class="nav-link" href="{% url 'account_logout' %}">
+                            <i class="bi bi-box-arrow-right me-1"></i>Cerrar sesión
+                        </a>
                     </li>
                 {% else %}
                     <li class="nav-item">
-                        <a class="nav-link" href="{% url 'account_login' %}">Iniciar sesión</a>
+                        <a class="nav-link" href="{% url 'account_login' %}">
+                            <i class="bi bi-box-arrow-in-right me-1"></i>Iniciar sesión
+                        </a>
                     </li>
                 {% endif %}
             </ul>

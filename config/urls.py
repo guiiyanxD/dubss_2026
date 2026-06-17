@@ -16,7 +16,7 @@ urlpatterns = [
     path("", RedirectView.as_view(pattern_name="acceso:inicio", permanent=False)),
 ]
 
-if settings.DEBUG:
+if settings.DEBUG and not getattr(settings, "RUNNING_UNDER_PYTEST", False):
     import debug_toolbar
 
     urlpatterns = [path("__debug__/", include(debug_toolbar.urls))] + urlpatterns

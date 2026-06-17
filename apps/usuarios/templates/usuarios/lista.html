@@ -3,10 +3,41 @@
 {% block title %}Usuarios{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
+<div class="d-flex justify-content-between align-items-center mb-3">
     <h2>Gestión de Usuarios</h2>
     <a href="{% url 'usuarios:crear' %}" class="btn btn-primary">+ Nuevo usuario</a>
 </div>
+
+<form method="get" class="card card-body shadow-sm mb-3 py-2">
+    <div class="row g-2 align-items-end">
+        <div class="col-md-4">
+            <label class="form-label form-label-sm mb-1">Buscar</label>
+            <input type="text" name="q" value="{{ busqueda }}" class="form-control form-control-sm"
+                   placeholder="Email, nombre o apellido…">
+        </div>
+        <div class="col-md-3">
+            <label class="form-label form-label-sm mb-1">Rol</label>
+            <select name="rol" class="form-select form-select-sm">
+                <option value="">Todos los roles</option>
+                <option value="Director" {% if rol == "Director" %}selected{% endif %}>Director</option>
+                <option value="Operador" {% if rol == "Operador" %}selected{% endif %}>Operador</option>
+                <option value="Estudiante" {% if rol == "Estudiante" %}selected{% endif %}>Estudiante</option>
+            </select>
+        </div>
+        <div class="col-md-3">
+            <label class="form-label form-label-sm mb-1">Estado</label>
+            <select name="estado" class="form-select form-select-sm">
+                <option value="">Todos los estados</option>
+                <option value="activo" {% if estado == "activo" %}selected{% endif %}>Activo</option>
+                <option value="inactivo" {% if estado == "inactivo" %}selected{% endif %}>Inactivo</option>
+            </select>
+        </div>
+        <div class="col-md-2 d-flex gap-1">
+            <button type="submit" class="btn btn-sm btn-primary flex-fill">Filtrar</button>
+            <a href="{% url 'usuarios:lista' %}" class="btn btn-sm btn-outline-secondary">✕</a>
+        </div>
+    </div>
+</form>
 
 <div class="card shadow-sm">
     <div class="table-responsive">
@@ -21,7 +52,7 @@
                 </tr>
             </thead>
             <tbody>
-                {% for u in usuarios %}
+                {% for u in page_obj %}
                 <tr>
                     <td>{{ u.email }}</td>
                     <td>{{ u.get_full_name|default:"—" }}</td>
@@ -51,7 +82,7 @@
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="5" class="text-center text-muted py-4">No hay usuarios registrados.</td>
+                    <td colspan="5" class="text-center text-muted py-4">No se encontraron usuarios con los filtros aplicados.</td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -59,7 +90,5 @@
     </div>
 </div>
 
-<div class="mt-3">
-    <a href="{% url 'usuarios:roles' %}" class="btn btn-outline-secondary btn-sm">Ver roles del sistema</a>
-</div>
+{% include "partials/_pagination.html" %}
 {% endblock %}

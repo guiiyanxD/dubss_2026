@@ -27,6 +27,10 @@
                     <dt class="col-sm-5">Enviada</dt>
                     <dd class="col-sm-7">{{ postulacion.fecha_envio|date:"d/m/Y H:i" }}</dd>
                     {% endif %}
+                    {% if postulacion.numero_referencia %}
+                    <dt class="col-sm-5">N° de referencia</dt>
+                    <dd class="col-sm-7">{{ postulacion.numero_referencia }}</dd>
+                    {% endif %}
                     {% if postulacion.observaciones_identidad %}
                     <dt class="col-sm-5">Obs. Identidad</dt>
                     <dd class="col-sm-7">{{ postulacion.observaciones_identidad }}</dd>
@@ -73,6 +77,15 @@
         </button>
     </form>
     <p class="text-muted mt-2 small">Una vez enviada, no podrás modificarla.</p>
+</div>
+{% endif %}
+
+{% if postulacion.numero_referencia %}
+<div class="mt-4">
+    <a href="{% url 'postulaciones:constancia' pk=postulacion.pk %}"
+       class="btn btn-outline-primary" target="_blank">
+        Imprimir Constancia
+    </a>
 </div>
 {% endif %}
 {% endblock %}

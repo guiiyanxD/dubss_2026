@@ -1,5 +1,6 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, user_passes_test
+from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 
 from apps.convocatorias.models import Convocatoria
@@ -7,6 +8,7 @@ from apps.convocatorias.models import Convocatoria
 from . import services
 from .exceptions import (
     BecaNoDisponibleError,
+    ConstanciaNoDisponibleError,
     ConvocatoriaNoVigenteError,
     DocumentoNoAprobadoError,
     FormularioIncompletoError,
@@ -101,6 +103,31 @@ def enviar_postulacion_view(request, pk):
         except TransicionEstadoInvalidaError as e:
             messages.error(request, str(e))
     return redirect("postulaciones:detalle", pk=pk)
+
+
+@login_required
+def imprimir_constancia_view(request, pk):
+    postulacion = get_object_or_404(
+        Postulacion.objects.select_related("estudiante", "convocatoria", "beca", "formulario"),
+        pk=pk,
+    )
+    # Mismo control de acceso que detalle_postulacion_view: evita que un estudiante
+    # descargue la constancia de otro probando distintos pk en la URL.
+    if not _es_staff(request.user) and postulacion.estudiante != request.user:
+        messages.error(request, "No tenés permiso para ver esta postulación.")
+        return redirect("postulaciones:lista")
+
+    try:
+        pdf_bytes = services.generar_constancia_pdf(postulacion=postulacion)
+    except ConstanciaNoDisponibleError as e:
+        messages.error(request, str(e))
+        return redirect("postulaciones:detalle", pk=pk)
+
+    response = HttpResponse(pdf_bytes, content_type="application/pdf")
+    response["Content-Disposition"] = (
+        f'inline; filename="constancia_{postulacion.numero_referencia}.pdf"'
+    )
+    return response
 
 
 # ---------------------------------------------------------------------------

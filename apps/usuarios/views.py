@@ -2,13 +2,19 @@ from django.contrib import messages
 from django.contrib.auth.decorators import user_passes_test
 from django.contrib.auth.forms import PasswordResetForm
 from django.contrib.auth.models import Group
+from django.core.paginator import Paginator
 from django.shortcuts import get_object_or_404, redirect, render
 
 from apps.acceso.models import Usuario
 
 from . import services
-from .exceptions import EmailYaRegistradoError, RolInvalidoError
-from .forms import CrearUsuarioForm, EditarUsuarioForm
+from .exceptions import (
+    EmailYaRegistradoError,
+    NombreRolDuplicadoError,
+    RolConMiembrosError,
+    RolInvalidoError,
+)
+from .forms import CrearUsuarioForm, EditarUsuarioForm, RolForm
 
 
 def _es_director(user):
@@ -22,8 +28,33 @@ director_required = user_passes_test(_es_director, login_url="/accounts/login/")
 
 @director_required
 def lista_usuarios_view(request):
-    usuarios = services.listar_usuarios(excluir_pk=request.user.pk)
-    return render(request, "usuarios/lista.html", {"usuarios": usuarios})
+    rol = request.GET.get("rol", "")
+    estado = request.GET.get("estado", "")
+    busqueda = request.GET.get("q", "")
+
+    qs = services.listar_usuarios(
+        excluir_pk=request.user.pk,
+        rol=rol or None,
+        estado=estado or None,
+        busqueda=busqueda or None,
+    )
+
+    paginator = Paginator(qs, 25)
+    page_obj = paginator.get_page(request.GET.get("page", 1))
+    page_range = paginator.get_elided_page_range(page_obj.number, on_each_side=2, on_ends=1)
+
+    params = request.GET.copy()
+    params.pop("page", None)
+    query_string = f"?{params.urlencode()}&" if params else "?"
+
+    return render(request, "usuarios/lista.html", {
+        "page_obj": page_obj,
+        "page_range": page_range,
+        "query_string": query_string,
+        "rol": rol,
+        "estado": estado,
+        "busqueda": busqueda,
+    })
 
 
 @director_required
@@ -95,10 +126,49 @@ def desactivar_usuario_view(request, pk):
 
 
 @director_required
-def gestionar_roles_view(request):
-    grupos = Group.objects.all()
-    grupos_con_miembros = [
-        (grupo, Usuario.objects.filter(groups=grupo).order_by("last_name", "first_name"))
-        for grupo in grupos
-    ]
-    return render(request, "usuarios/roles.html", {"grupos_con_miembros": grupos_con_miembros})
+def lista_roles_view(request):
+    roles = services.listar_roles()
+    return render(request, "usuarios/roles.html", {"roles": roles})
+
+
+@director_required
+def crear_rol_view(request):
+    form = RolForm(request.POST or None)
+    if request.method == "POST" and form.is_valid():
+        try:
+            services.crear_rol(nombre=form.cleaned_data["nombre"])
+            messages.success(request, "Rol creado correctamente.")
+            return redirect("usuarios:roles")
+        except NombreRolDuplicadoError as e:
+            form.add_error("nombre", str(e))
+    return render(request, "usuarios/roles_form.html", {"form": form, "titulo": "Nuevo Rol"})
+
+
+@director_required
+def editar_rol_view(request, pk):
+    grupo = get_object_or_404(Group, pk=pk)
+    form = RolForm(request.POST or None, initial={"nombre": grupo.name})
+    if request.method == "POST" and form.is_valid():
+        try:
+            services.editar_rol(grupo=grupo, nombre=form.cleaned_data["nombre"])
+            messages.success(request, "Rol actualizado correctamente.")
+            return redirect("usuarios:roles")
+        except NombreRolDuplicadoError as e:
+            form.add_error("nombre", str(e))
+    return render(
+        request,
+        "usuarios/roles_form.html",
+        {"form": form, "titulo": "Editar Rol", "grupo": grupo},
+    )
+
+
+@director_required
+def eliminar_rol_view(request, pk):
+    if request.method == "POST":
+        grupo = get_object_or_404(Group, pk=pk)
+        try:
+            services.eliminar_rol(grupo=grupo)
+            messages.success(request, f"Rol '{grupo.name}' eliminado.")
+        except RolConMiembrosError as e:
+            messages.error(request, str(e))
+    return redirect("usuarios:roles")

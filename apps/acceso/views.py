@@ -12,6 +12,12 @@ from .forms import RegistroEstudianteForm
 
 
 def inicio_view(request):
+    if request.user.is_authenticated:
+        rol = request.user.get_rol()
+        if rol == "Estudiante":
+            return redirect("convocatorias:lista")
+        elif rol in ("Director", "Operador") or request.user.is_superuser:
+            return redirect("postulaciones:cola-revision")
     return render(request, "acceso/inicio.html")
 
 

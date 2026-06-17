@@ -23,3 +23,7 @@ class EditarUsuarioForm(forms.Form):
     first_name = forms.CharField(label="Nombre", max_length=150)
     last_name = forms.CharField(label="Apellido", max_length=150)
     rol = forms.ChoiceField(label="Rol", choices=ROLES_TODOS)
+
+
+class RolForm(forms.Form):
+    nombre = forms.CharField(label="Nombre del rol", max_length=150, strip=True)

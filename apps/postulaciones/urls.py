@@ -9,6 +9,7 @@ urlpatterns = [
     path("", views.mis_postulaciones_view, name="lista"),
     path("<int:pk>/", views.detalle_postulacion_view, name="detalle"),
     path("<int:pk>/enviar/", views.enviar_postulacion_view, name="enviar"),
+    path("<int:pk>/constancia/", views.imprimir_constancia_view, name="constancia"),
     path("iniciar/<int:convocatoria_pk>/", views.iniciar_postulacion_view, name="iniciar"),
     # Operador / Director
     path("revision/", views.cola_revision_view, name="cola-revision"),

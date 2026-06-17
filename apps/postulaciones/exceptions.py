@@ -24,3 +24,7 @@ class DocumentoNoPendienteError(Exception):
 
 class DocumentoNoAprobadoError(Exception):
     """El documento no fue aprobado; no se puede digitalizar."""
+
+
+class ConstanciaNoDisponibleError(Exception):
+    """La postulación todavía no tiene número de referencia (no fue enviada)."""

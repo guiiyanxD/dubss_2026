@@ -129,13 +129,28 @@ def cerrar_convocatorias_vencidas():
     return count
 
 
-def listar_convocatorias(*, para_estudiante=False):
-    """Retorna convocatorias. Estudiantes solo ven las Publicadas."""
-    qs = Convocatoria.objects.prefetch_related("becas", "documentos_requeridos").select_related(
-        "creada_por"
+def listar_convocatorias(*, para_estudiante=False, estado=None, busqueda=None):
+    """Retorna convocatorias. Estudiantes solo ven las Publicadas.
+
+    Args:
+        para_estudiante: Si True, filtra solo las PUBLICADAS.
+        estado: Valor de Convocatoria.Estado a filtrar (solo aplica para staff).
+        busqueda: Texto a buscar en el nombre.
+
+    Returns:
+        QuerySet de Convocatoria ordenado por fecha de cierre descendente.
+    """
+    qs = (
+        Convocatoria.objects.prefetch_related("becas", "documentos_requeridos")
+        .select_related("creada_por")
+        .order_by("-fecha_cierre")
     )
     if para_estudiante:
         qs = qs.filter(estado=Convocatoria.Estado.PUBLICADA)
+    elif estado:
+        qs = qs.filter(estado=estado)
+    if busqueda:
+        qs = qs.filter(nombre__icontains=busqueda)
     return qs
 
 

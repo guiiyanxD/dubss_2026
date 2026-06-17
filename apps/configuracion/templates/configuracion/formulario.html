@@ -24,6 +24,18 @@
                 <form method="post" novalidate>
                     {% csrf_token %}
                     {{ form|crispy }}
+
+                    <h5 class="mt-4">Grupo familiar</h5>
+                    <p class="text-muted small">
+                        Agregá hasta 10 integrantes de tu grupo familiar (no incluyas tus
+                        propios datos).
+                    </p>
+                    {{ formset.management_form }}
+                    {% for integrante_form in formset %}
+                        {{ integrante_form|crispy }}
+                        <hr>
+                    {% endfor %}
+
                     <div class="d-flex justify-content-end gap-2 mt-3">
                         <button type="submit" class="btn btn-primary">Guardar formulario</button>
                     </div>

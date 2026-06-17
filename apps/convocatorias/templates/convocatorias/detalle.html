@@ -16,19 +16,25 @@
     </div>
     <div class="d-flex gap-2">
         <a href="{% url 'convocatorias:lista' %}" class="btn btn-outline-secondary btn-sm">← Volver</a>
-        {% if convocatoria.estado == 'BORRADOR' %}
-        <a href="{% url 'convocatorias:editar' convocatoria.pk %}" class="btn btn-outline-primary btn-sm">Editar</a>
-        <form method="post" action="{% url 'convocatorias:publicar' convocatoria.pk %}" class="d-inline">
-            {% csrf_token %}
-            <button type="submit" class="btn btn-success btn-sm"
-                onclick="return confirm('¿Publicar esta convocatoria?')">Publicar</button>
-        </form>
-        {% elif convocatoria.estado == 'PUBLICADA' %}
-        <form method="post" action="{% url 'convocatorias:cerrar' convocatoria.pk %}" class="d-inline">
-            {% csrf_token %}
-            <button type="submit" class="btn btn-danger btn-sm"
-                onclick="return confirm('¿Cerrar esta convocatoria manualmente?')">Cerrar</button>
-        </form>
+        {% if es_director %}
+            {% if convocatoria.estado == 'BORRADOR' %}
+            <a href="{% url 'convocatorias:editar' convocatoria.pk %}" class="btn btn-outline-primary btn-sm">Editar</a>
+            <form method="post" action="{% url 'convocatorias:publicar' convocatoria.pk %}" class="d-inline">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-success btn-sm"
+                    onclick="return confirm('¿Publicar esta convocatoria?')">Publicar</button>
+            </form>
+            {% elif convocatoria.estado == 'PUBLICADA' %}
+            <form method="post" action="{% url 'convocatorias:cerrar' convocatoria.pk %}" class="d-inline">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-danger btn-sm"
+                    onclick="return confirm('¿Cerrar esta convocatoria manualmente?')">Cerrar</button>
+            </form>
+            {% endif %}
+        {% elif es_estudiante and convocatoria.estado == 'PUBLICADA' %}
+            <a href="{% url 'postulaciones:iniciar' convocatoria.pk %}" class="btn btn-success btn-sm">
+                Postularme a una beca
+            </a>
         {% endif %}
     </div>
 </div>

@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="utf-8">
+    <title>Constancia — {{ postulacion.numero_referencia }}</title>
+    <style>
+        body { font-family: "DejaVu Sans", sans-serif; font-size: 10px; color: #333; margin: 20px; }
+        h1 { font-size: 14px; color: #1F4E79; border-bottom: 2px solid #1F4E79; padding-bottom: 6px; margin-bottom: 4px; }
+        h2 { font-size: 11px; color: #1F4E79; margin-top: 16px; margin-bottom: 4px; }
+        .encabezado { display: flex; justify-content: space-between; margin-bottom: 10px; }
+        .encabezado .institucion { font-size: 12px; font-weight: bold; }
+        .encabezado .referencia { font-size: 11px; font-weight: bold; text-align: right; }
+        table { width: 100%; border-collapse: collapse; margin-top: 6px; }
+        table.datos td { padding: 3px 6px; border: 1px solid #ccc; }
+        table.datos td.etiqueta { width: 35%; background-color: #f2f2f2; font-weight: bold; }
+        table.respaldo th { background-color: #1F4E79; color: white; padding: 4px 6px; text-align: left; font-size: 9px; }
+        table.respaldo td { padding: 3px 6px; border-bottom: 1px solid #ddd; font-size: 9px; }
+        table.respaldo td.marca { text-align: center; width: 8%; font-weight: bold; }
+        .seccion { margin-top: 10px; }
+        .declaracion { margin-top: 20px; border: 1px solid #333; padding: 10px; font-size: 9px; text-align: justify; }
+        .firma-tabla td { padding: 10px 6px 2px 6px; border-top: 1px solid #333; font-size: 9px; }
+        .firma-tabla .label { border-top: none; font-weight: bold; padding-top: 0; }
+        .footer { margin-top: 20px; font-size: 8px; color: #999; text-align: center; }
+        .lugar-fecha { margin-top: 16px; font-size: 10px; }
+    </style>
+</head>
+<body>
+
+<div class="encabezado">
+    <div class="institucion">Universidad — Sistema de Gestión de Becas</div>
+    <div class="referencia">{{ codigo_formulario }}<br>N° {{ postulacion.numero_referencia }}</div>
+</div>
+
+<h1>Formulario Socioeconómico — {{ beca.nombre }}</h1>
+<p>Gestión {{ postulacion.fecha_envio|date:"Y" }} — Convocatoria: {{ convocatoria.nombre }}</p>
+
+<div class="seccion">
+    <h2>1° Datos del (la) postulante</h2>
+    <table class="datos">
+        <tr><td class="etiqueta">Nombre completo</td><td>{{ estudiante.get_full_name }}</td></tr>
+        <tr><td class="etiqueta">Número de registro</td><td>{{ perfil_estudiante.legajo|default:"—" }}</td></tr>
+        <tr><td class="etiqueta">Número de celular</td><td>{{ formulario.numero_celular|default:"—" }}</td></tr>
+        <tr><td class="etiqueta">Teléfono de referencia</td><td>{{ formulario.telefono_referencia|default:"—" }}</td></tr>
+    </table>
+</div>
+
+<div class="seccion">
+    <h2>2° Dependencia económica del postulante</h2>
+    <table class="datos">
+        <tr><td class="etiqueta">¿De quién depende usted?</td><td>{{ formulario.get_dependencia_economica_display|default:"—" }}</td></tr>
+        <tr><td class="etiqueta">Ingreso mensual familiar</td>
+            <td>
+                {% if formulario.ingreso_mensual_familiar <= 2500 %}Menor de Bs. 2500
+                {% elif formulario.ingreso_mensual_familiar <= 4000 %}De Bs. 2501 a Bs. 4000
+                {% elif formulario.ingreso_mensual_familiar <= 6000 %}De Bs. 4001 a Bs. 6000
+                {% else %}Más de Bs. 6000{% endif %}
+            </td>
+        </tr>
+    </table>
+    <table class="respaldo">
+        <thead><tr><th>Tipo</th><th>Adjuntar respaldo</th><th>Marca</th></tr></thead>
+        <tbody>
+            <tr><td>Asalariado formal</td><td>Fotocopia de boleta de pago</td>
+                <td class="marca">{% if formulario.tipo_ocupacion_sosten == "ASALARIADO_FORMAL" %}X{% endif %}</td></tr>
+            <tr><td>Asalariado informal</td><td>Declaración jurada</td>
+                <td class="marca">{% if formulario.tipo_ocupacion_sosten == "ASALARIADO_INFORMAL" %}X{% endif %}</td></tr>
+            <tr><td>Comerciante mayorista</td><td>Fotocopia del NIT</td>
+                <td class="marca">{% if formulario.tipo_ocupacion_sosten == "COMERCIANTE_MAYORISTA" %}X{% endif %}</td></tr>
+            <tr><td>Rentista</td><td>Fotocopia de boleta de renta</td>
+                <td class="marca">{% if formulario.tipo_ocupacion_sosten == "RENTISTA" %}X{% endif %}</td></tr>
+            <tr><td>Comerciante minorista</td><td>Fotocopia del NIT o carnet de socio o nota especificando la característica del comercio</td>
+                <td class="marca">{% if formulario.tipo_ocupacion_sosten == "COMERCIANTE_MINORISTA" %}X{% endif %}</td></tr>
+            <tr><td>Agricultor</td><td>Fotocopia de carnet de socio o nota especificando la característica del agricultor</td>
+                <td class="marca">{% if formulario.tipo_ocupacion_sosten == "AGRICULTOR" %}X{% endif %}</td></tr>
+        </tbody>
+    </table>
+</div>
+
+<div class="seccion">
+    <h2>3° Grupo familiar</h2>
+    <table class="datos">
+        <tr><td class="etiqueta">¿Tiene hijos?</td><td>{{ formulario.tiene_hijos|yesno:"Sí,No" }}</td>
+            <td class="etiqueta">¿Cuántos?</td><td>{{ formulario.cantidad_hijos|default:"—" }}</td></tr>
+    </table>
+    <table class="respaldo">
+        <thead><tr><th>Nombre completo</th><th>Parentesco</th><th>Edad</th><th>Ocupación</th><th>Observación</th></tr></thead>
+        <tbody>
+            {% for integrante in integrantes_familiares %}
+            <tr>
+                <td>{{ integrante.nombre_completo }}</td>
+                <td>{{ integrante.parentesco }}</td>
+                <td>{{ integrante.edad }}</td>
+                <td>{{ integrante.ocupacion }}</td>
+                <td>{{ integrante.observacion }}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="5">Sin integrantes registrados.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<div class="seccion">
+    <h2>4° De la procedencia</h2>
+    <table class="datos">
+        <tr><td class="etiqueta">Lugar de procedencia</td><td>{{ formulario.lugar_procedencia|default:"—" }}</td></tr>
+    </table>
+</div>
+
+<div class="seccion">
+    <h2>5° De la residencia (en donde vive)</h2>
+    <table class="datos">
+        <tr><td class="etiqueta">Lugar</td><td>{{ formulario.residencia_lugar|default:"—" }}</td></tr>
+        <tr><td class="etiqueta">Provincia</td><td>{{ formulario.residencia_provincia|default:"—" }}</td></tr>
+        <tr><td class="etiqueta">Zona o Anillo</td><td>{{ formulario.residencia_zona_anillo|default:"—" }}</td></tr>
+        <tr><td class="etiqueta">Barrio</td><td>{{ formulario.residencia_barrio|default:"—" }}</td></tr>
+        <tr><td class="etiqueta">Calle</td><td>{{ formulario.residencia_calle|default:"—" }}</td></tr>
+    </table>
+</div>
+
+<div class="seccion">
+    <h2>6° Tenencia de vivienda</h2>
+    <table class="respaldo">
+        <thead><tr><th>Tipo de tenencia</th><th>Adjuntar respaldo</th><th>Marca</th></tr></thead>
+        <tbody>
+            <tr><td>Herencia</td><td>Fotocopia simple de documento de herencia</td>
+                <td class="marca">{% if formulario.tipo_tenencia_vivienda == "HERENCIA" %}X{% endif %}</td></tr>
+            <tr><td>De los padres</td><td>Fotocopia simple de pago de impuesto de cualquier gestión</td>
+                <td class="marca">{% if formulario.tipo_tenencia_vivienda == "DE_LOS_PADRES" %}X{% endif %}</td></tr>
+            <tr><td>Cedida</td><td>Nota del dueño de casa con su firma</td>
+                <td class="marca">{% if formulario.tipo_tenencia_vivienda == "CEDIDA" %}X{% endif %}</td></tr>
+            <tr><td>Anticrético</td><td>Fotocopia simple de contrato de anticresis vigente</td>
+                <td class="marca">{% if formulario.tipo_tenencia_vivienda == "ANTICRETICO" %}X{% endif %}</td></tr>
+            <tr><td>Alquiler</td><td>Fotocopia simple de respaldo de alquiler</td>
+                <td class="marca">{% if formulario.tipo_tenencia_vivienda == "ALQUILER" %}X{% endif %}</td></tr>
+        </tbody>
+    </table>
+</div>
+
+<div class="seccion">
+    <h2>7° Infraestructura de la vivienda</h2>
+    <table class="datos">
+        <tr>
+            <td class="etiqueta">Dormitorio</td><td>{{ formulario.dormitorios }}</td>
+            <td class="etiqueta">Baño</td><td>{{ formulario.banos }}</td>
+            <td class="etiqueta">Comedor</td><td>{{ formulario.comedores }}</td>
+            <td class="etiqueta">Sala</td><td>{{ formulario.salas }}</td>
+            <td class="etiqueta">Patio</td><td>{{ formulario.patios }}</td>
+        </tr>
+    </table>
+</div>
+
+<div class="seccion">
+    <h2>8° ¿Tiene otro beneficio dentro de la universidad?</h2>
+    <table class="datos">
+        <tr><td class="etiqueta">Respuesta</td><td>{{ formulario.tiene_beca_previa|yesno:"Sí,No" }}</td>
+            <td class="etiqueta">¿Cuál?</td><td>{{ formulario.detalle_otro_beneficio|default:"—" }}</td></tr>
+    </table>
+</div>
+
+<div class="seccion">
+    <h2>9° ¿Tiene algún tipo de discapacidad?</h2>
+    <table class="datos">
+        <tr><td class="etiqueta">Respuesta</td><td>{{ formulario.tiene_discapacidad|yesno:"Sí,No" }}</td>
+            <td class="etiqueta">Tipo y grado</td><td>{{ formulario.detalle_discapacidad|default:"—" }}</td></tr>
+    </table>
+</div>
+
+<div class="seccion">
+    <h2>10° Aclaración o comentario personal</h2>
+    <table class="datos">
+        <tr><td>{{ formulario.observaciones|default:"—" }}</td></tr>
+    </table>
+</div>
+
+<div class="declaracion">
+    DECLARO LA VERACIDAD DE LOS DATOS ANTERIORES, LOS MISMOS QUE PUEDEN ESTAR SUJETOS A
+    VERIFICACIÓN; EN CASO DE FALSEDAD, ACEPTO LA PÉRDIDA DEL BENEFICIO DE LA BECA Y LA
+    DEVOLUCIÓN DE LOS IMPORTES RECIBIDOS, PARA LO CUAL FIRMO A CONTINUACIÓN.
+</div>
+
+<table class="firma-tabla">
+    <tr><td class="label">Firma del postulante</td><td>&nbsp;</td></tr>
+    <tr><td class="label">Nombre del postulante</td><td>{{ estudiante.get_full_name }}</td></tr>
+    <tr><td class="label">Cédula de identidad</td><td>&nbsp;</td></tr>
+</table>
+
+<p class="lugar-fecha">
+    Lugar y fecha: ____________________, {{ postulacion.fecha_envio|date:"j \d\e F \d\e\l Y" }}
+</p>
+
+<div class="footer">
+    Constancia generada automáticamente — Sistema de Gestión de Becas Universitarias
+</div>
+
+</body>
+</html>

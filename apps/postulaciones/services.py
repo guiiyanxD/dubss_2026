@@ -1,11 +1,14 @@
 from django.db import transaction
+from django.template.loader import render_to_string
 from django.utils import timezone
+from weasyprint import HTML
 
 from apps.configuracion.models import FormularioSocioeconomico
 from apps.convocatorias.models import Beca, Convocatoria  # noqa: F401
 
 from .exceptions import (
     BecaNoDisponibleError,
+    ConstanciaNoDisponibleError,
     ConvocatoriaNoVigenteError,
     DocumentoNoAprobadoError,
     DocumentoNoPendienteError,
@@ -13,12 +16,14 @@ from .exceptions import (
     PostulacionActivaExistenteError,
     TransicionEstadoInvalidaError,
 )
-from .models import DocumentoPostulacion, Postulacion
+from .models import ContadorReferencia, DocumentoPostulacion, Postulacion
 from .signals import (
     documentacion_procesada,
     identidad_verificada,
     postulacion_enviada,
 )
+
+CODIGO_FORMULARIO = "FORMULARIO DUBS 002"
 
 
 @transaction.atomic
@@ -92,7 +97,8 @@ def enviar_postulacion(*, postulacion):
 
     postulacion.estado = Postulacion.Estado.ENVIADA
     postulacion.fecha_envio = timezone.now()
-    postulacion.save(update_fields=["estado", "fecha_envio"])
+    postulacion.numero_referencia = ContadorReferencia.siguiente()
+    postulacion.save(update_fields=["estado", "fecha_envio", "numero_referencia"])
 
     for tipo_doc in postulacion.convocatoria.documentos_requeridos.all():
         DocumentoPostulacion.objects.get_or_create(
@@ -242,3 +248,39 @@ def marcar_rechazadas_por_cierre(*, convocatoria):
         convocatoria=convocatoria,
         estado__in=[Postulacion.Estado.BORRADOR, Postulacion.Estado.ENVIADA],
     ).update(estado=Postulacion.Estado.RECHAZADA_NO_PRESENTACION)
+
+
+def generar_constancia_pdf(*, postulacion):
+    """Genera el PDF de la constancia del formulario socioeconómico (FORMULARIO DUBS 002).
+
+    Reproduce el formulario socioeconómico oficial en papel con los datos de la
+    postulación enviada, incluyendo el número de referencia asignado en CU17.
+
+    Args:
+        postulacion: Instancia de Postulacion ya enviada (numero_referencia asignado).
+
+    Returns:
+        Bytes del archivo .pdf.
+
+    Raises:
+        ConstanciaNoDisponibleError: Si la postulación todavía no fue enviada.
+    """
+    if postulacion.numero_referencia is None:
+        raise ConstanciaNoDisponibleError(
+            "La constancia solo está disponible para postulaciones enviadas."
+        )
+
+    formulario = postulacion.formulario
+    contexto = {
+        "postulacion": postulacion,
+        "estudiante": postulacion.estudiante,
+        "perfil_estudiante": getattr(postulacion.estudiante, "perfil_estudiante", None),
+        "formulario": formulario,
+        "integrantes_familiares": formulario.integrantes_familiares.all(),
+        "beca": postulacion.beca,
+        "convocatoria": postulacion.convocatoria,
+        "codigo_formulario": CODIGO_FORMULARIO,
+    }
+
+    html_str = render_to_string("postulaciones/constancia_pdf.html", contexto)
+    return HTML(string=html_str).write_pdf()

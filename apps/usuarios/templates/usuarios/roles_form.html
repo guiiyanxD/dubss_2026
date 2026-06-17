@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% load crispy_forms_tags %}
+
+{% block title %}{{ titulo }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>{{ titulo }}</h2>
+    <a href="{% url 'usuarios:roles' %}" class="btn btn-outline-secondary btn-sm">← Volver</a>
+</div>
+
+<div class="card shadow-sm" style="max-width: 480px;">
+    <div class="card-body">
+        <form method="post">
+            {% csrf_token %}
+            {{ form|crispy }}
+            <div class="d-flex gap-2 mt-3">
+                <button type="submit" class="btn btn-primary">Guardar</button>
+                <a href="{% url 'usuarios:roles' %}" class="btn btn-outline-secondary">Cancelar</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

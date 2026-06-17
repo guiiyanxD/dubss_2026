@@ -10,5 +10,8 @@ urlpatterns = [
     path("<int:pk>/editar/", views.editar_usuario_view, name="editar"),
     path("<int:pk>/activar/", views.activar_usuario_view, name="activar"),
     path("<int:pk>/desactivar/", views.desactivar_usuario_view, name="desactivar"),
-    path("roles/", views.gestionar_roles_view, name="roles"),
+    path("roles/", views.lista_roles_view, name="roles"),
+    path("roles/crear/", views.crear_rol_view, name="roles-crear"),
+    path("roles/<int:pk>/editar/", views.editar_rol_view, name="roles-editar"),
+    path("roles/<int:pk>/eliminar/", views.eliminar_rol_view, name="roles-eliminar"),
 ]

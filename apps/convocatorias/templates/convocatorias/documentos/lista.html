@@ -3,13 +3,35 @@
 {% block title %}Tipos de Documento{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
+<div class="d-flex justify-content-between align-items-center mb-3">
     <h2>Tipos de Documento Requerido</h2>
     <div class="d-flex gap-2">
-        <a href="{% url 'convocatorias:documentos-crear' %}" class="btn btn-primary">+ Nuevo tipo</a>
         <a href="{% url 'convocatorias:lista' %}" class="btn btn-outline-secondary btn-sm">← Convocatorias</a>
+        <a href="{% url 'convocatorias:documentos-crear' %}" class="btn btn-primary">+ Nuevo tipo</a>
     </div>
 </div>
+
+<form method="get" class="card card-body shadow-sm mb-3 py-2">
+    <div class="row g-2 align-items-end">
+        <div class="col-md-6">
+            <label class="form-label form-label-sm mb-1">Buscar</label>
+            <input type="text" name="q" value="{{ busqueda }}" class="form-control form-control-sm"
+                   placeholder="Nombre del tipo de documento…">
+        </div>
+        <div class="col-md-3">
+            <label class="form-label form-label-sm mb-1">Estado</label>
+            <select name="activo" class="form-select form-select-sm">
+                <option value="">Todos</option>
+                <option value="1" {% if activo == "1" %}selected{% endif %}>Activo</option>
+                <option value="0" {% if activo == "0" %}selected{% endif %}>Inactivo</option>
+            </select>
+        </div>
+        <div class="col-md-3 d-flex gap-1">
+            <button type="submit" class="btn btn-sm btn-primary flex-fill">Filtrar</button>
+            <a href="{% url 'convocatorias:documentos-lista' %}" class="btn btn-sm btn-outline-secondary">✕</a>
+        </div>
+    </div>
+</form>
 
 <div class="card shadow-sm">
     <div class="table-responsive">
@@ -23,7 +45,7 @@
                 </tr>
             </thead>
             <tbody>
-                {% for tipo in tipos %}
+                {% for tipo in page_obj %}
                 <tr>
                     <td>{{ tipo.nombre }}</td>
                     <td class="text-muted small">{{ tipo.descripcion|truncatewords:15|default:"—" }}</td>
@@ -40,11 +62,13 @@
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="4" class="text-center text-muted py-4">No hay tipos de documento registrados.</td>
+                    <td colspan="4" class="text-center text-muted py-4">No se encontraron tipos de documento con los filtros aplicados.</td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
 </div>
+
+{% include "partials/_pagination.html" %}
 {% endblock %}

@@ -3,13 +3,35 @@
 {% block title %}Becas{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
+<div class="d-flex justify-content-between align-items-center mb-3">
     <h2>Catálogo de Becas</h2>
     <div class="d-flex gap-2">
-        <a href="{% url 'convocatorias:becas-crear' %}" class="btn btn-primary">+ Nueva beca</a>
         <a href="{% url 'convocatorias:lista' %}" class="btn btn-outline-secondary btn-sm">← Convocatorias</a>
+        <a href="{% url 'convocatorias:becas-crear' %}" class="btn btn-primary">+ Nueva beca</a>
     </div>
 </div>
+
+<form method="get" class="card card-body shadow-sm mb-3 py-2">
+    <div class="row g-2 align-items-end">
+        <div class="col-md-6">
+            <label class="form-label form-label-sm mb-1">Buscar</label>
+            <input type="text" name="q" value="{{ busqueda }}" class="form-control form-control-sm"
+                   placeholder="Nombre de la beca…">
+        </div>
+        <div class="col-md-3">
+            <label class="form-label form-label-sm mb-1">Estado</label>
+            <select name="activa" class="form-select form-select-sm">
+                <option value="">Todos</option>
+                <option value="1" {% if activa == "1" %}selected{% endif %}>Activa</option>
+                <option value="0" {% if activa == "0" %}selected{% endif %}>Inactiva</option>
+            </select>
+        </div>
+        <div class="col-md-3 d-flex gap-1">
+            <button type="submit" class="btn btn-sm btn-primary flex-fill">Filtrar</button>
+            <a href="{% url 'convocatorias:becas-lista' %}" class="btn btn-sm btn-outline-secondary">✕</a>
+        </div>
+    </div>
+</form>
 
 <div class="card shadow-sm">
     <div class="table-responsive">
@@ -23,7 +45,7 @@
                 </tr>
             </thead>
             <tbody>
-                {% for beca in becas %}
+                {% for beca in page_obj %}
                 <tr>
                     <td>{{ beca.nombre }}</td>
                     <td class="text-muted small">{{ beca.descripcion|truncatewords:15|default:"—" }}</td>
@@ -40,11 +62,13 @@
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="4" class="text-center text-muted py-4">No hay becas registradas.</td>
+                    <td colspan="4" class="text-center text-muted py-4">No se encontraron becas con los filtros aplicados.</td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
 </div>
+
+{% include "partials/_pagination.html" %}
 {% endblock %}

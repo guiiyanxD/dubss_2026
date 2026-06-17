@@ -11,8 +11,15 @@ class DocumentoPostulacionInline(admin.TabularInline):
 
 @admin.register(Postulacion)
 class PostulacionAdmin(admin.ModelAdmin):
-    list_display = ["estudiante", "convocatoria", "beca", "estado", "fecha_envio"]
+    list_display = [
+        "estudiante",
+        "convocatoria",
+        "beca",
+        "estado",
+        "fecha_envio",
+        "numero_referencia",
+    ]
     list_filter = ["estado", "convocatoria"]
     search_fields = ["estudiante__email", "estudiante__last_name"]
-    readonly_fields = ["fecha_creacion", "fecha_envio"]
+    readonly_fields = ["fecha_creacion", "fecha_envio", "numero_referencia"]
     inlines = [DocumentoPostulacionInline]

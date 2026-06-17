@@ -7,6 +7,7 @@ from apps.configuracion.models import FormularioSocioeconomico
 from apps.convocatorias.models import Beca, Convocatoria, TipoDocumento
 from apps.postulaciones import services
 from apps.postulaciones.exceptions import (
+    ConstanciaNoDisponibleError,
     ConvocatoriaNoVigenteError,
     DocumentoNoAprobadoError,
     DocumentoNoPendienteError,
@@ -122,7 +123,48 @@ def test_enviar_postulacion_ok(postulacion_borrador, convocatoria):
     p = services.enviar_postulacion(postulacion=postulacion_borrador)
     assert p.estado == Postulacion.Estado.ENVIADA
     assert p.fecha_envio is not None
+    assert p.numero_referencia == 1
     assert DocumentoPostulacion.objects.filter(postulacion=p).count() == 1
+
+
+@pytest.mark.django_db
+def test_enviar_postulacion_numero_referencia_secuencial(
+    estudiante, convocatoria, beca, formulario
+):
+    p1 = services.iniciar_postulacion(estudiante=estudiante, convocatoria=convocatoria, beca=beca)
+    services.enviar_postulacion(postulacion=p1)
+
+    estudiante2 = Usuario.objects.create_user(email="est2@test.com", password="pass")
+    formulario2 = FormularioSocioeconomico.objects.create(
+        usuario=estudiante2,
+        situacion_laboral=FormularioSocioeconomico.SituacionLaboral.EMPLEADO,
+        ingreso_mensual_familiar=Decimal("30000"),
+        cantidad_familiares=2,
+        situacion_habitacional=FormularioSocioeconomico.SituacionHabitacional.ALQUILANDO,
+        tiene_beca_previa=False,
+        completado=True,
+    )
+    p2 = services.iniciar_postulacion(estudiante=estudiante2, convocatoria=convocatoria, beca=beca)
+    services.enviar_postulacion(postulacion=p2)
+
+    p1.refresh_from_db()
+    p2.refresh_from_db()
+    assert p1.numero_referencia == 1
+    assert p2.numero_referencia == 2
+    assert formulario2.usuario == estudiante2
+
+
+@pytest.mark.django_db
+def test_generar_constancia_pdf_sin_enviar(postulacion_borrador):
+    with pytest.raises(ConstanciaNoDisponibleError):
+        services.generar_constancia_pdf(postulacion=postulacion_borrador)
+
+
+@pytest.mark.django_db
+def test_generar_constancia_pdf_ok(postulacion_borrador):
+    p = services.enviar_postulacion(postulacion=postulacion_borrador)
+    pdf_bytes = services.generar_constancia_pdf(postulacion=p)
+    assert pdf_bytes.startswith(b"%PDF")
 
 
 @pytest.mark.django_db

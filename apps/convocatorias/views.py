@@ -1,5 +1,6 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, user_passes_test
+from django.core.paginator import Paginator
 from django.shortcuts import get_object_or_404, redirect, render
 
 from . import services
@@ -42,12 +43,31 @@ director_required = user_passes_test(_es_director, login_url="/accounts/login/")
 @login_required
 def lista_convocatorias_view(request):
     es_estudiante = not _es_director_o_operador(request.user)
-    convocatorias = services.listar_convocatorias(para_estudiante=es_estudiante)
-    return render(
-        request,
-        "convocatorias/lista.html",
-        {"convocatorias": convocatorias, "es_estudiante": es_estudiante},
+    estado = request.GET.get("estado", "") if not es_estudiante else ""
+    busqueda = request.GET.get("q", "")
+
+    qs = services.listar_convocatorias(
+        para_estudiante=es_estudiante,
+        estado=estado or None,
+        busqueda=busqueda or None,
     )
+
+    paginator = Paginator(qs, 12)
+    page_obj = paginator.get_page(request.GET.get("page", 1))
+    page_range = paginator.get_elided_page_range(page_obj.number, on_each_side=2, on_ends=1)
+
+    params = request.GET.copy()
+    params.pop("page", None)
+    query_string = f"?{params.urlencode()}&" if params else "?"
+
+    return render(request, "convocatorias/lista.html", {
+        "page_obj": page_obj,
+        "page_range": page_range,
+        "query_string": query_string,
+        "es_estudiante": es_estudiante,
+        "estado": estado,
+        "busqueda": busqueda,
+    })
 
 
 @director_required
@@ -105,7 +125,11 @@ def detalle_convocatoria_view(request, pk):
     convocatoria = get_object_or_404(
         Convocatoria.objects.prefetch_related("becas", "documentos_requeridos"), pk=pk
     )
-    return render(request, "convocatorias/detalle.html", {"convocatoria": convocatoria})
+    return render(request, "convocatorias/detalle.html", {
+        "convocatoria": convocatoria,
+        "es_director": _es_director(request.user),
+        "es_estudiante": not _es_director_o_operador(request.user),
+    })
 
 
 @director_required
@@ -139,8 +163,32 @@ def cerrar_convocatoria_view(request, pk):
 
 @staff_required
 def lista_becas_view(request):
-    becas = Beca.objects.all()
-    return render(request, "convocatorias/becas/lista.html", {"becas": becas})
+    activa = request.GET.get("activa", "")
+    busqueda = request.GET.get("q", "")
+
+    qs = Beca.objects.order_by("nombre")
+    if activa == "1":
+        qs = qs.filter(activa=True)
+    elif activa == "0":
+        qs = qs.filter(activa=False)
+    if busqueda:
+        qs = qs.filter(nombre__icontains=busqueda)
+
+    paginator = Paginator(qs, 20)
+    page_obj = paginator.get_page(request.GET.get("page", 1))
+    page_range = paginator.get_elided_page_range(page_obj.number, on_each_side=2, on_ends=1)
+
+    params = request.GET.copy()
+    params.pop("page", None)
+    query_string = f"?{params.urlencode()}&" if params else "?"
+
+    return render(request, "convocatorias/becas/lista.html", {
+        "page_obj": page_obj,
+        "page_range": page_range,
+        "query_string": query_string,
+        "activa": activa,
+        "busqueda": busqueda,
+    })
 
 
 @director_required
@@ -190,8 +238,32 @@ def editar_beca_view(request, pk):
 
 @staff_required
 def lista_tipos_documento_view(request):
-    tipos = TipoDocumento.objects.all()
-    return render(request, "convocatorias/documentos/lista.html", {"tipos": tipos})
+    activo = request.GET.get("activo", "")
+    busqueda = request.GET.get("q", "")
+
+    qs = TipoDocumento.objects.order_by("nombre")
+    if activo == "1":
+        qs = qs.filter(activo=True)
+    elif activo == "0":
+        qs = qs.filter(activo=False)
+    if busqueda:
+        qs = qs.filter(nombre__icontains=busqueda)
+
+    paginator = Paginator(qs, 20)
+    page_obj = paginator.get_page(request.GET.get("page", 1))
+    page_range = paginator.get_elided_page_range(page_obj.number, on_each_side=2, on_ends=1)
+
+    params = request.GET.copy()
+    params.pop("page", None)
+    query_string = f"?{params.urlencode()}&" if params else "?"
+
+    return render(request, "convocatorias/documentos/lista.html", {
+        "page_obj": page_obj,
+        "page_range": page_range,
+        "query_string": query_string,
+        "activo": activo,
+        "busqueda": busqueda,
+    })
 
 
 @director_required

@@ -63,6 +63,13 @@ class Postulacion(models.Model):
         null=True,
         blank=True,
     )
+    numero_referencia = models.PositiveIntegerField(
+        "número de referencia",
+        unique=True,
+        null=True,
+        blank=True,
+        help_text="Asignado al enviar la postulación; identifica la constancia impresa.",
+    )
     history = HistoricalRecords()
 
     class Meta:
@@ -108,3 +115,24 @@ class DocumentoPostulacion(models.Model):
 
     def __str__(self):
         return f"{self.tipo_documento} — {self.postulacion}"
+
+
+class ContadorReferencia(models.Model):
+    """Fila única que genera números de referencia secuenciales para constancias.
+
+    Se usa con select_for_update() para evitar números duplicados entre envíos
+    concurrentes, sin derivar el número del PK de Postulacion.
+    """
+
+    ultimo_numero = models.PositiveIntegerField("último número emitido", default=0)
+
+    class Meta:
+        verbose_name = "contador de referencia"
+        verbose_name_plural = "contador de referencia"
+
+    @classmethod
+    def siguiente(cls):
+        contador, _ = cls.objects.select_for_update().get_or_create(pk=1)
+        contador.ultimo_numero += 1
+        contador.save(update_fields=["ultimo_numero"])
+        return contador.ultimo_numero
