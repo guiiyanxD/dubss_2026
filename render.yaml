@@ -1,0 +1,96 @@
+databases:
+  - name: becas-db
+    databaseName: becas_db
+    user: becas_user
+    plan: free
+    postgresMajorVersion: "17"
+
+services:
+  - type: keyvalue
+    name: becas-redis
+    plan: starter
+    ipAllowList:
+      - source: 0.0.0.0/0
+
+  - type: web
+    name: becas-web
+    runtime: docker
+    dockerfilePath: ./docker/Dockerfile
+    dockerContext: .
+    plan: free
+    dockerCommand: gunicorn config.wsgi:application --bind 0.0.0.0:$PORT
+    preDeployCommand: python manage.py migrate --noinput
+    envVars: &becas-env
+      - key: DJANGO_SETTINGS_MODULE
+        value: config.settings.production
+      - key: DJANGO_SECRET_KEY
+        generateValue: true
+      - key: DJANGO_DEBUG
+        value: "False"
+      - key: DJANGO_ALLOWED_HOSTS
+        value: .onrender.com
+      - key: DJANGO_CSRF_TRUSTED_ORIGINS
+        value: https://*.onrender.com
+      - key: POSTGRES_DB
+        fromDatabase:
+          name: becas-db
+          property: database
+      - key: POSTGRES_USER
+        fromDatabase:
+          name: becas-db
+          property: user
+      - key: POSTGRES_PASSWORD
+        fromDatabase:
+          name: becas-db
+          property: password
+      - key: POSTGRES_HOST
+        fromDatabase:
+          name: becas-db
+          property: host
+      - key: POSTGRES_PORT
+        fromDatabase:
+          name: becas-db
+          property: port
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: becas-redis
+          property: connectionString
+      - key: CELERY_BROKER_URL
+        fromService:
+          type: keyvalue
+          name: becas-redis
+          property: connectionString
+      - key: CELERY_RESULT_BACKEND
+        fromService:
+          type: keyvalue
+          name: becas-redis
+          property: connectionString
+      - key: EMAIL_HOST
+        sync: false
+      - key: EMAIL_PORT
+        value: "587"
+      - key: EMAIL_HOST_USER
+        sync: false
+      - key: EMAIL_HOST_PASSWORD
+        sync: false
+      - key: EMAIL_USE_TLS
+        value: "True"
+
+  - type: worker
+    name: becas-worker
+    runtime: docker
+    dockerfilePath: ./docker/Dockerfile
+    dockerContext: .
+    plan: starter
+    dockerCommand: celery -A config.celery worker -l info
+    envVars: *becas-env
+
+  - type: worker
+    name: becas-beat
+    runtime: docker
+    dockerfilePath: ./docker/Dockerfile
+    dockerContext: .
+    plan: starter
+    dockerCommand: celery -A config.celery beat -l info --scheduler django_celery_beat.schedulers:DatabaseScheduler
+    envVars: *becas-env
