@@ -1,7 +1,6 @@
 from django.db import transaction
 from django.template.loader import render_to_string
 from django.utils import timezone
-from weasyprint import HTML
 
 from apps.configuracion.models import FormularioSocioeconomico
 from apps.convocatorias.models import Beca, Convocatoria  # noqa: F401
@@ -265,6 +264,8 @@ def generar_constancia_pdf(*, postulacion):
     Raises:
         ConstanciaNoDisponibleError: Si la postulación todavía no fue enviada.
     """
+    from weasyprint import HTML
+
     if postulacion.numero_referencia is None:
         raise ConstanciaNoDisponibleError(
             "La constancia solo está disponible para postulaciones enviadas."

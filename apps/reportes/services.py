@@ -1,11 +1,9 @@
 import io
 from decimal import Decimal
 
-import pandas as pd
 from django.template.loader import render_to_string
 from openpyxl import Workbook
 from openpyxl.styles import Alignment, Font, PatternFill
-from weasyprint import HTML
 
 from apps.postulaciones.models import Postulacion
 from apps.postulaciones.signals import resultado_adjudicacion
@@ -23,6 +21,8 @@ def procesar_formularios_socioeconomicos(*, convocatoria):
     Returns:
         Cantidad de postulaciones procesadas.
     """
+    import pandas as pd
+
     postulaciones = list(
         Postulacion.objects.filter(
             convocatoria=convocatoria,
@@ -184,6 +184,8 @@ def exportar_reporte_pdf(*, convocatoria, request=None):
     Returns:
         Bytes del archivo .pdf.
     """
+    from weasyprint import HTML
+
     postulaciones = list(
         Postulacion.objects.filter(
             convocatoria=convocatoria,
