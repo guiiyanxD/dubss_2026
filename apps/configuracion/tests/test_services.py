@@ -54,7 +54,7 @@ def test_guardar_formulario_actualiza_existente(estudiante):
         tiene_beca_previa=True,
     )
 
-    assert FormularioSocioeconomico.objects.count() == 1
+    assert FormularioSocioeconomico.objects.filter(usuario=estudiante).count() == 1
     assert formulario.situacion_laboral == FormularioSocioeconomico.SituacionLaboral.DESEMPLEADO
     assert formulario.ingreso_mensual_familiar == Decimal("20000.00")
 

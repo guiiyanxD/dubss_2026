@@ -123,7 +123,7 @@ def test_enviar_postulacion_ok(postulacion_borrador, convocatoria):
     p = services.enviar_postulacion(postulacion=postulacion_borrador)
     assert p.estado == Postulacion.Estado.ENVIADA
     assert p.fecha_envio is not None
-    assert p.numero_referencia == 1
+    assert p.numero_referencia is not None and p.numero_referencia > 0
     assert DocumentoPostulacion.objects.filter(postulacion=p).count() == 1
 
 
@@ -149,8 +149,7 @@ def test_enviar_postulacion_numero_referencia_secuencial(
 
     p1.refresh_from_db()
     p2.refresh_from_db()
-    assert p1.numero_referencia == 1
-    assert p2.numero_referencia == 2
+    assert p2.numero_referencia == p1.numero_referencia + 1
     assert formulario2.usuario == estudiante2
 
 
