@@ -76,20 +76,14 @@ services:
       - key: EMAIL_USE_TLS
         value: "True"
 
+  # Worker + Beat combinados en un solo proceso (-B) para reducir costo.
+  # Seguro porque corre una única instancia; con réplicas duplicaría los
+  # disparos de tareas programadas (CU11).
   - type: worker
     name: becas-worker
     runtime: docker
     dockerfilePath: ./docker/Dockerfile
     dockerContext: .
     plan: starter
-    dockerCommand: celery -A config.celery worker -l info
-    envVars: *becas-env
-
-  - type: worker
-    name: becas-beat
-    runtime: docker
-    dockerfilePath: ./docker/Dockerfile
-    dockerContext: .
-    plan: starter
-    dockerCommand: celery -A config.celery beat -l info --scheduler django_celery_beat.schedulers:DatabaseScheduler
+    dockerCommand: celery -A config.celery worker -B -l info --scheduler django_celery_beat.schedulers:DatabaseScheduler
     envVars: *becas-env

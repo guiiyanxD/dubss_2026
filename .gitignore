@@ -16,7 +16,7 @@ develop-eggs/
 .installed.cfg
 lib/
 lib64/
-
+*.md
 # Django
 *.log
 local_settings.py
@@ -28,6 +28,7 @@ staticfiles/
 
 # Entorno
 .env
+.env.worker
 .venv
 venv/
 ENV/
@@ -44,9 +45,13 @@ ENV/
 
 # Testing
 .coverage
+coverage.xml
 htmlcov/
 .pytest_cache/
 .tox/
 
 # Ruff
 .ruff_cache/
+
+# SonarQube
+.scannerwork/

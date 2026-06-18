@@ -1,0 +1,9 @@
+services:
+  worker:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    command: celery -A config.celery worker -B -l info --scheduler django_celery_beat.schedulers:DatabaseScheduler
+    env_file:
+      - .env.worker
+    restart: unless-stopped
