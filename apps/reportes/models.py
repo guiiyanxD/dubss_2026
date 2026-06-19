@@ -83,6 +83,7 @@ class MensajeChat(models.Model):
     rol = models.CharField("rol", max_length=20, choices=Rol.choices)
     contenido = models.TextField("contenido")
     tools_usadas = models.JSONField("tools usadas", null=True, blank=True)
+    archivo = models.FileField("archivo adjunto", upload_to="chat_ia/%Y/%m/", null=True, blank=True)
     fecha_creacion = models.DateTimeField("fecha de creación", auto_now_add=True)
 
     class Meta:

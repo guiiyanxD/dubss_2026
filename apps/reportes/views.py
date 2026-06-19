@@ -173,6 +173,16 @@ def resumen_ia_estado_view(request, resumen_pk):
 
 
 @director_required
+def resumen_ia_exportar_pdf_view(request, resumen_pk):
+    resumen = get_object_or_404(ResumenIA, pk=resumen_pk)
+    pdf_bytes = services.exportar_resumen_ia_pdf(resumen_pk=resumen.pk)
+    nombre = f"resumen_ia_{resumen.pk}.pdf"
+    response = HttpResponse(pdf_bytes, content_type="application/pdf")
+    response["Content-Disposition"] = f'attachment; filename="{nombre}"'
+    return response
+
+
+@director_required
 def chat_lista_view(request):
     if request.method == "POST":
         conversacion = services.crear_conversacion(usuario=request.user)

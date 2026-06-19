@@ -13,6 +13,11 @@ urlpatterns = [
         views.resumen_ia_estado_view,
         name="resumen_ia_estado",
     ),
+    path(
+        "ia/resumen/<int:resumen_pk>/pdf/",
+        views.resumen_ia_exportar_pdf_view,
+        name="resumen_ia_pdf",
+    ),
     path("ia/chat/", views.chat_lista_view, name="chat_lista"),
     path("ia/chat/<int:conversacion_pk>/", views.chat_detalle_view, name="chat_detalle"),
     path("ia/chat/<int:conversacion_pk>/estado/", views.chat_estado_view, name="chat_estado"),

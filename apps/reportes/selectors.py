@@ -400,3 +400,85 @@ def latencia_envio_notificaciones():
     )
     promedio = resultado["promedio"]
     return {"minutos_promedio": round(promedio.total_seconds() / 60, 1) if promedio else 0.0}
+
+
+# ---------------------------------------------------------------------------
+# Búsqueda de postulantes (reportes ad-hoc, registros individuales)
+# ---------------------------------------------------------------------------
+
+
+def buscar_postulantes(
+    *,
+    convocatoria=None,
+    carrera=None,
+    anio_ingreso_min=None,
+    anio_ingreso_max=None,
+    cantidad_familiares_min=None,
+    cantidad_familiares_max=None,
+    situacion_laboral=None,
+    situacion_habitacional=None,
+    tiene_discapacidad=None,
+    tiene_hijos=None,
+    estado_postulacion=None,
+    limite=200,
+):
+    """Búsqueda de postulantes con filtros acotados, para reportes ad-hoc (CU26 / chat IA).
+
+    A diferencia del resto de `selectors.py`, esta función devuelve registros
+    individuales (nombre, email, legajo) en vez de agregados — usar con cuidado. Todos
+    los filtros son opcionales y se mapean a lookups explícitos del ORM (nunca a
+    nombres de campo dinámicos).
+
+    Returns:
+        Lista de dicts, como máximo `limite` filas.
+    """
+    qs = Postulacion.objects.select_related(
+        "estudiante", "estudiante__perfil_estudiante", "formulario", "convocatoria", "beca"
+    )
+
+    if convocatoria is not None:
+        qs = qs.filter(convocatoria=convocatoria)
+    if carrera:
+        qs = qs.filter(estudiante__perfil_estudiante__carrera__icontains=carrera)
+    if anio_ingreso_min is not None:
+        qs = qs.filter(estudiante__perfil_estudiante__anio_ingreso__gte=anio_ingreso_min)
+    if anio_ingreso_max is not None:
+        qs = qs.filter(estudiante__perfil_estudiante__anio_ingreso__lte=anio_ingreso_max)
+    if cantidad_familiares_min is not None:
+        qs = qs.filter(formulario__cantidad_familiares__gte=cantidad_familiares_min)
+    if cantidad_familiares_max is not None:
+        qs = qs.filter(formulario__cantidad_familiares__lte=cantidad_familiares_max)
+    if situacion_laboral:
+        qs = qs.filter(formulario__situacion_laboral=situacion_laboral)
+    if situacion_habitacional:
+        qs = qs.filter(formulario__situacion_habitacional=situacion_habitacional)
+    if tiene_discapacidad is not None:
+        qs = qs.filter(formulario__tiene_discapacidad=tiene_discapacidad)
+    if tiene_hijos is not None:
+        qs = qs.filter(formulario__tiene_hijos=tiene_hijos)
+    if estado_postulacion:
+        qs = qs.filter(estado=estado_postulacion)
+
+    qs = qs.distinct().order_by("estudiante__last_name", "estudiante__first_name")[:limite]
+
+    resultados = []
+    for p in qs:
+        # getattr(p.estudiante, "perfil_estudiante", None) protege correctamente la
+        # relación inversa O2O cuando no existe; encadenar el acceso en una sola
+        # expresión (p.estudiante.perfil_estudiante.legajo) evaluaría el atributo
+        # ANTES de que getattr pueda capturar RelatedObjectDoesNotExist.
+        perfil = getattr(p.estudiante, "perfil_estudiante", None)
+        resultados.append(
+            {
+                "nombre": p.estudiante.get_full_name() or p.estudiante.email,
+                "email": p.estudiante.email,
+                "legajo": getattr(perfil, "legajo", ""),
+                "carrera": getattr(perfil, "carrera", ""),
+                "anio_ingreso": getattr(perfil, "anio_ingreso", None),
+                "cantidad_familiares": p.formulario.cantidad_familiares,
+                "convocatoria": p.convocatoria.nombre,
+                "beca": p.beca.nombre,
+                "estado_postulacion": p.get_estado_display(),
+            }
+        )
+    return resultados

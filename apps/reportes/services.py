@@ -3,6 +3,7 @@ import io
 import json
 from decimal import Decimal
 
+from django.core.files.base import ContentFile
 from django.template.loader import render_to_string
 from django.utils import timezone
 from openpyxl import Workbook
@@ -11,7 +12,7 @@ from openpyxl.styles import Alignment, Font, PatternFill
 from apps.postulaciones.models import Postulacion
 from apps.postulaciones.signals import resultado_adjudicacion
 
-from . import charts, llm_client, llm_tools, selectors
+from . import charts, charts_matplotlib, llm_client, llm_tools, selectors
 from .models import Conversacion, MensajeChat, ResumenIA
 
 
@@ -433,6 +434,88 @@ def marcar_resumenes_ia_vencidos(*, minutos=10):
     )
 
 
+def exportar_resumen_ia_pdf(*, resumen_pk):
+    """Genera un PDF con el resumen narrativo de IA + gráficos estáticos (Matplotlib).
+
+    Returns:
+        Bytes del archivo .pdf.
+    """
+    from weasyprint import HTML
+
+    resumen = ResumenIA.objects.select_related("convocatoria").get(pk=resumen_pk)
+
+    embudo = selectors.embudo_estados(convocatoria=resumen.convocatoria)
+    puntaje = selectors.distribucion_puntaje_socioeconomico(convocatoria=resumen.convocatoria)
+
+    contexto = {
+        "resumen": resumen,
+        "grafico_embudo": charts_matplotlib.grafico_embudo_estatico(
+            **embudo, titulo="Embudo de postulaciones"
+        ),
+        "grafico_puntaje": charts_matplotlib.grafico_histograma_estatico(
+            valores=puntaje["valores"],
+            titulo="Distribución de puntaje socioeconómico",
+            eje_x="Puntaje",
+        ),
+    }
+    html_str = render_to_string("reportes/resumen_ia_pdf.html", contexto)
+    return HTML(string=html_str).write_pdf()
+
+
+_COLUMNAS_POSTULANTES = [
+    ("nombre", "Nombre"),
+    ("email", "Email"),
+    ("legajo", "Legajo"),
+    ("carrera", "Carrera"),
+    ("anio_ingreso", "Año ingreso"),
+    ("cantidad_familiares", "Familiares"),
+    ("convocatoria", "Convocatoria"),
+    ("beca", "Beca"),
+    ("estado_postulacion", "Estado"),
+]
+
+
+def generar_archivo_postulantes(*, filas, formato):
+    """Genera un archivo descargable con una lista de postulantes ya filtrada.
+
+    Args:
+        filas: Lista de dicts, como las que devuelve `selectors.buscar_postulantes`.
+        formato: "excel" o "pdf".
+
+    Returns:
+        Tupla (nombre_archivo, bytes).
+    """
+    marca = timezone.now().strftime("%Y%m%d%H%M%S")
+
+    if formato == "pdf":
+        from weasyprint import HTML
+
+        html_str = render_to_string("reportes/postulantes_pdf.html", {"filas": filas})
+        return f"reporte_postulantes_{marca}.pdf", HTML(string=html_str).write_pdf()
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Postulantes"
+
+    header_fill = PatternFill(start_color="1F4E79", end_color="1F4E79", fill_type="solid")
+    header_font = Font(color="FFFFFF", bold=True)
+    encabezados = [titulo for _, titulo in _COLUMNAS_POSTULANTES]
+    for col, encabezado in enumerate(encabezados, start=1):
+        cell = ws.cell(row=1, column=col, value=encabezado)
+        cell.fill = header_fill
+        cell.font = header_font
+        cell.alignment = Alignment(horizontal="center")
+
+    for fila_idx, fila in enumerate(filas, start=2):
+        for col, (clave, _) in enumerate(_COLUMNAS_POSTULANTES, start=1):
+            ws.cell(row=fila_idx, column=col, value=fila.get(clave))
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    return f"reporte_postulantes_{marca}.xlsx", buf.read()
+
+
 _ROL_A_OLLAMA = {
     MensajeChat.Rol.USUARIO: "user",
     MensajeChat.Rol.ASISTENTE: "assistant",
@@ -444,8 +527,13 @@ _PROMPT_SISTEMA_CHAT = (
     "consultar datos reales del sistema. Para responder preguntas sobre datos "
     "(postulaciones, becas, convocatorias, documentos, notificaciones), SIEMPRE usá las "
     "herramientas disponibles en vez de inventar cifras. Si necesitás el id de una "
-    "convocatoria, llamá primero a listar_convocatorias. Respondé en español, de forma "
-    "clara y concisa, citando los números reales que obtuviste de las herramientas."
+    "convocatoria, llamá primero a listar_convocatorias. Si te piden una tabla, listado "
+    "o reporte descargable, usá generar_reporte_postulantes con los filtros que puedas "
+    "inferir — nunca intentes escribir la tabla vos mismo como texto, el archivo se "
+    "genera aparte. El sistema NO registra la edad ni la fecha de nacimiento del "
+    "estudiante: si te piden filtrar o reportar por edad, decilo explícitamente en vez "
+    "de inventar un valor o usar otro campo como reemplazo. Respondé en español, de "
+    "forma clara y concisa, citando los números reales que obtuviste de las herramientas."
 )
 
 MAX_ITERACIONES_TOOLS = 5
@@ -491,6 +579,7 @@ def procesar_mensaje_con_llm(*, mensaje_pk):
     mensajes_llm += [{"role": _ROL_A_OLLAMA[m.rol], "content": m.contenido} for m in historial]
 
     tools_usadas = []
+    archivo_generado = None
     try:
         contenido_final = (
             "No pude completar la consulta (demasiados pasos). Probá reformular la pregunta."
@@ -515,17 +604,24 @@ def procesar_mensaje_con_llm(*, mensaje_pk):
                 nombre = llamada["function"]["name"]
                 argumentos = llamada["function"].get("arguments") or {}
                 resultado = llm_tools.ejecutar_tool(nombre, argumentos)
+                archivo_bytes = resultado.pop("_archivo_bytes", None)
+                archivo_nombre = resultado.pop("_archivo_nombre", None)
+                if archivo_bytes:
+                    archivo_generado = (archivo_nombre, archivo_bytes)
                 tools_usadas.append({"tool": nombre, "argumentos": argumentos})
                 mensajes_llm.append(
                     {"role": "tool", "name": nombre, "content": json.dumps(resultado, default=str)}
                 )
 
-        MensajeChat.objects.create(
+        mensaje_asistente = MensajeChat.objects.create(
             conversacion=conversacion,
             rol=MensajeChat.Rol.ASISTENTE,
             contenido=contenido_final,
             tools_usadas=tools_usadas or None,
         )
+        if archivo_generado is not None:
+            archivo_nombre, archivo_bytes = archivo_generado
+            mensaje_asistente.archivo.save(archivo_nombre, ContentFile(archivo_bytes), save=True)
         conversacion.save()  # toca fecha_actualizacion
     except Exception as exc:
         MensajeChat.objects.create(

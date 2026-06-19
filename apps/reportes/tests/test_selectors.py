@@ -433,3 +433,87 @@ def test_latencia_envio_notificaciones(director):
 def test_latencia_envio_notificaciones_sin_datos():
     resultado = selectors.latencia_envio_notificaciones()
     assert resultado == {"minutos_promedio": 0.0}
+
+
+# ---------------------------------------------------------------------------
+# Búsqueda de postulantes (reportes ad-hoc)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+def test_buscar_postulantes_filtra_por_familiares(convocatoria, beca, crear_estudiante):
+    u1, f1 = crear_estudiante(familiares=3, carrera="Ingeniería de Sistemas", anio_ingreso=2021)
+    u2, f2 = crear_estudiante(familiares=5)
+    Postulacion.objects.create(
+        estudiante=u1,
+        convocatoria=convocatoria,
+        beca=beca,
+        formulario=f1,
+        estado=Postulacion.Estado.ENVIADA,
+    )
+    Postulacion.objects.create(
+        estudiante=u2,
+        convocatoria=convocatoria,
+        beca=beca,
+        formulario=f2,
+        estado=Postulacion.Estado.ENVIADA,
+    )
+
+    resultado = selectors.buscar_postulantes(
+        convocatoria=convocatoria, cantidad_familiares_min=3, cantidad_familiares_max=3
+    )
+
+    assert len(resultado) == 1
+    assert resultado[0]["carrera"] == "Ingeniería de Sistemas"
+    assert resultado[0]["anio_ingreso"] == 2021
+    assert resultado[0]["cantidad_familiares"] == 3
+
+
+@pytest.mark.django_db
+def test_buscar_postulantes_respeta_limite(convocatoria, beca, crear_estudiante):
+    for _ in range(3):
+        u, f = crear_estudiante()
+        Postulacion.objects.create(
+            estudiante=u,
+            convocatoria=convocatoria,
+            beca=beca,
+            formulario=f,
+            estado=Postulacion.Estado.ENVIADA,
+        )
+
+    resultado = selectors.buscar_postulantes(limite=2)
+    assert len(resultado) == 2
+
+
+@pytest.mark.django_db
+def test_buscar_postulantes_sin_datos(convocatoria):
+    # Filtrado por la convocatoria recién creada en este test (sin postulaciones
+    # propias todavía) para no chocar con los datos de prueba ya sembrados en la BD.
+    assert selectors.buscar_postulantes(convocatoria=convocatoria) == []
+
+
+@pytest.mark.django_db
+def test_buscar_postulantes_filtra_por_estado(convocatoria, beca, crear_estudiante):
+    u1, f1 = crear_estudiante()
+    u2, f2 = crear_estudiante()
+    Postulacion.objects.create(
+        estudiante=u1,
+        convocatoria=convocatoria,
+        beca=beca,
+        formulario=f1,
+        estado=Postulacion.Estado.ADJUDICADA,
+    )
+    Postulacion.objects.create(
+        estudiante=u2,
+        convocatoria=convocatoria,
+        beca=beca,
+        formulario=f2,
+        estado=Postulacion.Estado.ENVIADA,
+    )
+
+    resultado = selectors.buscar_postulantes(
+        convocatoria=convocatoria, estado_postulacion=Postulacion.Estado.ADJUDICADA
+    )
+
+    assert len(resultado) == 1
+    assert resultado[0]["estado_postulacion"] == "Adjudicada"

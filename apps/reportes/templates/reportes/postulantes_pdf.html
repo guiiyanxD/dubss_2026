@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="utf-8">
+    <title>Reporte de postulantes</title>
+    <style>
+        body { font-family: "DejaVu Sans", sans-serif; font-size: 10px; color: #333; margin: 20px; }
+        h1 { font-size: 16px; color: #1F4E79; border-bottom: 2px solid #1F4E79; padding-bottom: 6px; }
+        .fecha { font-size: 10px; color: #666; margin-bottom: 16px; }
+        table { width: 100%; border-collapse: collapse; }
+        th { background-color: #1F4E79; color: white; padding: 5px 8px; text-align: left; }
+        td { padding: 4px 8px; border-bottom: 1px solid #ddd; }
+        .footer { margin-top: 30px; font-size: 9px; color: #999; text-align: center; }
+    </style>
+</head>
+<body>
+
+<h1>Reporte de Postulantes</h1>
+<div class="fecha">Generado: {% now "d/m/Y H:i" %} — {{ filas|length }} resultado(s)</div>
+
+<table>
+    <thead>
+        <tr>
+            <th>Nombre</th>
+            <th>Email</th>
+            <th>Legajo</th>
+            <th>Carrera</th>
+            <th>Año ingreso</th>
+            <th>Familiares</th>
+            <th>Convocatoria</th>
+            <th>Beca</th>
+            <th>Estado</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for fila in filas %}
+        <tr>
+            <td>{{ fila.nombre }}</td>
+            <td>{{ fila.email }}</td>
+            <td>{{ fila.legajo|default:"—" }}</td>
+            <td>{{ fila.carrera|default:"—" }}</td>
+            <td>{{ fila.anio_ingreso|default:"—" }}</td>
+            <td>{{ fila.cantidad_familiares }}</td>
+            <td>{{ fila.convocatoria }}</td>
+            <td>{{ fila.beca }}</td>
+            <td>{{ fila.estado_postulacion }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<div class="footer">
+    Sistema de Gestión de Becas Universitarias — Documento generado automáticamente por IA local
+</div>
+
+</body>
+</html>

@@ -289,3 +289,70 @@ def test_marcar_chats_vencidos(director):
 
     assert count == 1
     assert conversacion.mensajes.filter(rol=MensajeChat.Rol.ASISTENTE).exists()
+
+
+_FILA_POSTULANTE_EJEMPLO = {
+    "nombre": "Ana Test",
+    "email": "ana@test.com",
+    "legajo": "L1",
+    "carrera": "Ingeniería de Sistemas",
+    "anio_ingreso": 2021,
+    "cantidad_familiares": 3,
+    "convocatoria": "Conv Test",
+    "beca": "Beca Test",
+    "estado_postulacion": "Enviada",
+}
+
+
+def test_generar_archivo_postulantes_excel():
+    nombre, contenido = services.generar_archivo_postulantes(
+        filas=[_FILA_POSTULANTE_EJEMPLO], formato="excel"
+    )
+    assert nombre.endswith(".xlsx")
+    assert isinstance(contenido, bytes)
+    assert contenido[:2] == b"PK"  # magic bytes de ZIP (formato XLSX)
+
+
+def test_generar_archivo_postulantes_pdf():
+    nombre, contenido = services.generar_archivo_postulantes(
+        filas=[_FILA_POSTULANTE_EJEMPLO], formato="pdf"
+    )
+    assert nombre.endswith(".pdf")
+    assert contenido[:4] == b"%PDF"
+
+
+@pytest.mark.django_db
+def test_procesar_mensaje_con_llm_adjunta_archivo_generado(director):
+    conversacion = services.crear_conversacion(usuario=director)
+    mensaje = MensajeChat.objects.create(
+        conversacion=conversacion,
+        rol=MensajeChat.Rol.USUARIO,
+        contenido="Dame un excel de postulantes de familias con 3 integrantes",
+    )
+
+    respuestas_simuladas = [
+        {
+            "message": {
+                "content": "",
+                "tool_calls": [
+                    {
+                        "function": {
+                            "name": "generar_reporte_postulantes",
+                            "arguments": {"cantidad_familiares_min": 3, "formato": "excel"},
+                        }
+                    }
+                ],
+            }
+        },
+        {"message": {"content": "Listo, generé el archivo solicitado.", "tool_calls": []}},
+    ]
+
+    with patch("apps.reportes.services.llm_client.chat", side_effect=respuestas_simuladas):
+        services.procesar_mensaje_con_llm(mensaje_pk=mensaje.pk)
+
+    respuesta = conversacion.mensajes.filter(rol=MensajeChat.Rol.ASISTENTE).first()
+    assert respuesta.contenido == "Listo, generé el archivo solicitado."
+    assert respuesta.archivo
+    assert respuesta.archivo.name.endswith(".xlsx")
+    # el archivo nunca debe viajar en tools_usadas (solo metadatos)
+    assert "_archivo_bytes" not in respuesta.tools_usadas[0]

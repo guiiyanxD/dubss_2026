@@ -5,7 +5,9 @@ estudiantes — para reducir el riesgo de exponer datos personales vía prompt i
 El modelo no puede ejecutar nada fuera de `CATALOGO` (lista blanca).
 """
 
+from apps.configuracion.models import FormularioSocioeconomico
 from apps.convocatorias.models import Convocatoria
+from apps.postulaciones.models import Postulacion
 
 from . import selectors
 
@@ -57,6 +59,53 @@ def _tasa_entrega_notificaciones(**_kwargs):
     return selectors.tasa_entrega_notificaciones()
 
 
+def _generar_reporte_postulantes(
+    convocatoria_id=None,
+    carrera=None,
+    anio_ingreso_min=None,
+    anio_ingreso_max=None,
+    cantidad_familiares_min=None,
+    cantidad_familiares_max=None,
+    situacion_laboral=None,
+    situacion_habitacional=None,
+    tiene_discapacidad=None,
+    tiene_hijos=None,
+    estado_postulacion=None,
+    formato="excel",
+    **_kwargs,
+):
+    """Genera un archivo descargable (Excel o PDF) con los postulantes que cumplen los
+    filtros. El LLM nunca recibe las filas ni el archivo — solo la cantidad encontrada.
+    El archivo real viaja en claves internas (`_archivo_bytes`/`_archivo_nombre`) que
+    `services.py` intercepta y adjunta al mensaje del asistente antes de serializar el
+    resultado de vuelta al modelo."""
+    from . import services
+
+    filas = selectors.buscar_postulantes(
+        convocatoria=_convocatoria_por_id(convocatoria_id),
+        carrera=carrera,
+        anio_ingreso_min=anio_ingreso_min,
+        anio_ingreso_max=anio_ingreso_max,
+        cantidad_familiares_min=cantidad_familiares_min,
+        cantidad_familiares_max=cantidad_familiares_max,
+        situacion_laboral=situacion_laboral,
+        situacion_habitacional=situacion_habitacional,
+        tiene_discapacidad=tiene_discapacidad,
+        tiene_hijos=tiene_hijos,
+        estado_postulacion=estado_postulacion,
+    )
+    formato = formato if formato in ("excel", "pdf") else "excel"
+    nombre_archivo, contenido_bytes = services.generar_archivo_postulantes(
+        filas=filas, formato=formato
+    )
+    return {
+        "filas_encontradas": len(filas),
+        "formato": formato,
+        "_archivo_bytes": contenido_bytes,
+        "_archivo_nombre": nombre_archivo,
+    }
+
+
 _SIN_ARGUMENTOS = {"type": "object", "properties": {}, "required": []}
 
 _CONVOCATORIA_OPCIONAL = {
@@ -65,6 +114,65 @@ _CONVOCATORIA_OPCIONAL = {
         "convocatoria_id": {
             "type": "integer",
             "description": "ID de la convocatoria a consultar (ver listar_convocatorias). Omitir para incluir todas.",
+        },
+    },
+    "required": [],
+}
+
+_REPORTE_POSTULANTES_PARAMS = {
+    "type": "object",
+    "properties": {
+        "convocatoria_id": {
+            "type": "integer",
+            "description": "ID de la convocatoria a filtrar (ver listar_convocatorias). Omitir para todas.",
+        },
+        "carrera": {
+            "type": "string",
+            "description": "Filtra por carrera del postulante (coincidencia parcial, ej. 'Sistemas').",
+        },
+        "anio_ingreso_min": {
+            "type": "integer",
+            "description": "Año de ingreso a la carrera, mínimo.",
+        },
+        "anio_ingreso_max": {
+            "type": "integer",
+            "description": "Año de ingreso a la carrera, máximo.",
+        },
+        "cantidad_familiares_min": {
+            "type": "integer",
+            "description": "Cantidad mínima de integrantes del grupo familiar.",
+        },
+        "cantidad_familiares_max": {
+            "type": "integer",
+            "description": "Cantidad máxima de integrantes del grupo familiar.",
+        },
+        "situacion_laboral": {
+            "type": "string",
+            "enum": list(FormularioSocioeconomico.SituacionLaboral.values),
+            "description": "Situación laboral del postulante.",
+        },
+        "situacion_habitacional": {
+            "type": "string",
+            "enum": list(FormularioSocioeconomico.SituacionHabitacional.values),
+            "description": "Situación habitacional del postulante.",
+        },
+        "tiene_discapacidad": {
+            "type": "boolean",
+            "description": "Filtra por presencia de discapacidad.",
+        },
+        "tiene_hijos": {
+            "type": "boolean",
+            "description": "Filtra por si el postulante tiene hijos.",
+        },
+        "estado_postulacion": {
+            "type": "string",
+            "enum": list(Postulacion.Estado.values),
+            "description": "Estado actual de la postulación.",
+        },
+        "formato": {
+            "type": "string",
+            "enum": ["excel", "pdf"],
+            "description": "Formato del archivo a generar. Por defecto 'excel'.",
         },
     },
     "required": [],
@@ -120,6 +228,17 @@ CATALOGO = {
         "descripcion": "Cantidad de notificaciones por estado de entrega (pendiente/enviada/error).",
         "parametros": _SIN_ARGUMENTOS,
         "funcion": _tasa_entrega_notificaciones,
+    },
+    "generar_reporte_postulantes": {
+        "descripcion": (
+            "Genera un archivo descargable (Excel o PDF) con la lista de postulantes que "
+            "cumplen los filtros indicados. Usar esta tool cuando se pida una tabla, "
+            "listado o reporte exportable — nunca intentar escribir la tabla como texto. "
+            "El sistema NO registra la edad del estudiante; si el pedido la requiere, "
+            "aclarar esa limitación en la respuesta en vez de inventar un valor."
+        ),
+        "parametros": _REPORTE_POSTULANTES_PARAMS,
+        "funcion": _generar_reporte_postulantes,
     },
 }
 

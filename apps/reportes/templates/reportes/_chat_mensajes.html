@@ -20,6 +20,13 @@ div ya no tiene hx-trigger y el polling se detiene solo.
         <div class="d-flex justify-content-start mb-2">
             <div class="bg-light border rounded-3 px-3 py-2" style="max-width: 75%;">
                 {{ m.contenido|linebreaksbr }}
+                {% if m.archivo %}
+                <div class="mt-2">
+                    <a href="{{ m.archivo.url }}" class="btn btn-sm btn-success" download>
+                        <i class="bi bi-download me-1"></i>Descargar archivo
+                    </a>
+                </div>
+                {% endif %}
                 {% if m.tools_usadas %}
                 <div class="text-muted small mt-1 border-top pt-1">
                     <i class="bi bi-tools me-1"></i>{% for t in m.tools_usadas %}{{ t.tool }}{% if not forloop.last %}, {% endif %}{% endfor %}
