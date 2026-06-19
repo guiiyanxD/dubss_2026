@@ -1,9 +1,46 @@
 services:
+  # Servidor Ollama local (LLM), con aceleración GPU NVIDIA. Requiere
+  # nvidia-container-toolkit instalado en esta máquina.
+  ollama:
+    image: ollama/ollama:latest
+    restart: unless-stopped
+    volumes:
+      - ollama_data:/root/.ollama
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    healthcheck:
+      test: ["CMD-SHELL", "ollama list || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+
+  # Descarga el modelo una sola vez. No reiniciar (one-shot).
+  ollama-init:
+    image: ollama/ollama:latest
+    entrypoint: ["sh", "-c"]
+    command: ["ollama pull llama3.1:8b-instruct-q4_K_M"]
+    environment:
+      OLLAMA_HOST: ollama:11434
+    depends_on:
+      ollama:
+        condition: service_healthy
+
   worker:
     build:
       context: .
       dockerfile: docker/Dockerfile
-    command: celery -A config.celery worker -B -l info --scheduler django_celery_beat.schedulers:DatabaseScheduler
+    command: celery -A config.celery worker -B -Q celery,ia -l info --scheduler django_celery_beat.schedulers:DatabaseScheduler
     env_file:
       - .env.worker
     restart: unless-stopped
+    depends_on:
+      ollama-init:
+        condition: service_completed_successfully
+
+volumes:
+  ollama_data:

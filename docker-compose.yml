@@ -79,11 +79,34 @@ services:
       init:
         condition: service_completed_successfully
 
+  # Servidor Ollama local (LLM). En dev corre solo CPU con un modelo chico,
+  # únicamente para poder probar el flujo de IA sin depender de la PC de mesa.
+  ollama:
+    image: ollama/ollama:latest
+    volumes:
+      - ollama_data:/root/.ollama
+    healthcheck:
+      test: ["CMD-SHELL", "ollama list || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+
+  # Descarga el modelo una sola vez al iniciar el stack (igual patrón que `init`).
+  ollama-init:
+    image: ollama/ollama:latest
+    entrypoint: ["sh", "-c"]
+    command: ["ollama pull qwen2.5:3b"]
+    environment:
+      OLLAMA_HOST: ollama:11434
+    depends_on:
+      ollama:
+        condition: service_healthy
+
   worker:
     build:
       context: .
       dockerfile: docker/Dockerfile
-    command: celery -A config.celery worker -l info
+    command: celery -A config.celery worker -Q celery,ia -l info
     volumes:
       - .:/app
       - media_data:/app/media
@@ -97,6 +120,8 @@ services:
       redis:
         condition: service_healthy
       init:
+        condition: service_completed_successfully
+      ollama-init:
         condition: service_completed_successfully
 
   beat:
@@ -122,3 +147,4 @@ volumes:
   postgres_data:
   media_data:
   pgadmin_data:
+  ollama_data:

@@ -1,14 +1,18 @@
+import datetime
 import io
+import json
 from decimal import Decimal
 
 from django.template.loader import render_to_string
+from django.utils import timezone
 from openpyxl import Workbook
 from openpyxl.styles import Alignment, Font, PatternFill
 
 from apps.postulaciones.models import Postulacion
 from apps.postulaciones.signals import resultado_adjudicacion
 
-from . import charts, selectors
+from . import charts, llm_client, llm_tools, selectors
+from .models import Conversacion, MensajeChat, ResumenIA
 
 
 def procesar_formularios_socioeconomicos(*, convocatoria):
@@ -335,3 +339,225 @@ def construir_contexto_dashboard(*, convocatoria=None, fecha_desde=None, fecha_h
         ),
         "latencia_notificaciones": latencia,
     }
+
+
+def solicitar_resumen_ia(*, usuario, convocatoria=None, prompt_adicional=""):
+    """CU26 — Encola la generación de un resumen narrativo de KPIs con el LLM local.
+
+    Args:
+        usuario: Usuario (Director) que solicita el resumen.
+        convocatoria: Instancia de Convocatoria a resumir, o None para todas.
+        prompt_adicional: Instrucción libre opcional del Director.
+
+    Returns:
+        La instancia de ResumenIA creada (estado PENDIENTE).
+    """
+    resumen = ResumenIA.objects.create(
+        usuario=usuario, convocatoria=convocatoria, prompt_adicional=prompt_adicional
+    )
+    from .tasks import tarea_generar_resumen_ia
+
+    tarea_generar_resumen_ia.delay(resumen.pk)
+    return resumen
+
+
+def _contexto_kpis_para_prompt(*, convocatoria):
+    """Serializa los KPIs reales (selectors.py) en texto plano para el prompt del LLM."""
+    lineas = [
+        f"Embudo de postulaciones por estado: {selectors.embudo_estados(convocatoria=convocatoria)}",
+        f"Demanda por beca: {selectors.postulaciones_por_beca(convocatoria=convocatoria)}",
+        f"Motivos de rechazo: {selectors.desglose_rechazos(convocatoria=convocatoria)}",
+        f"Indicadores socioeconómicos: {selectors.indicadores_generales(convocatoria=convocatoria)}",
+    ]
+    if convocatoria is not None:
+        lineas.append(
+            f"Puntaje socioeconómico por resultado final: "
+            f"{selectors.comparacion_puntaje_por_resultado(convocatoria=convocatoria)}"
+        )
+    else:
+        lineas.append(
+            f"Tasa de adjudicación por convocatoria: {selectors.tasa_adjudicacion_por_convocatoria()}"
+        )
+    return "\n".join(lineas)
+
+
+def generar_resumen_con_llm(*, resumen_pk):
+    """Construye el prompt a partir de KPIs reales y llama al LLM local (Ollama).
+
+    Llamada exclusivamente por `tasks.tarea_generar_resumen_ia` (cola "ia", procesada
+    solo por el worker con acceso a Ollama).
+    """
+    resumen = ResumenIA.objects.select_related("convocatoria").get(pk=resumen_pk)
+    resumen.estado = ResumenIA.Estado.PROCESANDO
+    resumen.save(update_fields=["estado"])
+
+    try:
+        contexto = _contexto_kpis_para_prompt(convocatoria=resumen.convocatoria)
+        mensajes = [
+            {
+                "role": "system",
+                "content": (
+                    "Eres un asistente que redacta resúmenes ejecutivos para el Director "
+                    "de un sistema de becas universitarias. Basate ÚNICAMENTE en los datos "
+                    "numéricos provistos a continuación; no inventes cifras que no estén en "
+                    "el contexto. Responde en español, en un párrafo conciso."
+                ),
+            },
+            {"role": "user", "content": f"{contexto}\n\n{resumen.prompt_adicional}".strip()},
+        ]
+        respuesta = llm_client.chat(mensajes)
+        resumen.resultado = respuesta["message"]["content"]
+        resumen.estado = ResumenIA.Estado.COMPLETADO
+        resumen.fecha_completado = timezone.now()
+        resumen.save(update_fields=["resultado", "estado", "fecha_completado"])
+    except Exception as exc:
+        resumen.estado = ResumenIA.Estado.ERROR
+        resumen.error_detalle = str(exc)
+        resumen.save(update_fields=["estado", "error_detalle"])
+        raise
+
+
+def marcar_resumenes_ia_vencidos(*, minutos=10):
+    """Marca como ERROR los ResumenIA atascados en PENDIENTE/PROCESANDO (LLM no disponible).
+
+    Returns:
+        Cantidad de registros marcados como error.
+    """
+    limite = timezone.now() - datetime.timedelta(minutes=minutos)
+    return ResumenIA.objects.filter(
+        estado__in=[ResumenIA.Estado.PENDIENTE, ResumenIA.Estado.PROCESANDO],
+        fecha_creacion__lt=limite,
+    ).update(
+        estado=ResumenIA.Estado.ERROR,
+        error_detalle="El servicio de IA no está disponible en este momento. Intentá nuevamente más tarde.",
+    )
+
+
+_ROL_A_OLLAMA = {
+    MensajeChat.Rol.USUARIO: "user",
+    MensajeChat.Rol.ASISTENTE: "assistant",
+    MensajeChat.Rol.SISTEMA: "system",
+}
+
+_PROMPT_SISTEMA_CHAT = (
+    "Eres un asistente que ayuda al Director de un sistema de becas universitarias a "
+    "consultar datos reales del sistema. Para responder preguntas sobre datos "
+    "(postulaciones, becas, convocatorias, documentos, notificaciones), SIEMPRE usá las "
+    "herramientas disponibles en vez de inventar cifras. Si necesitás el id de una "
+    "convocatoria, llamá primero a listar_convocatorias. Respondé en español, de forma "
+    "clara y concisa, citando los números reales que obtuviste de las herramientas."
+)
+
+MAX_ITERACIONES_TOOLS = 5
+
+
+def crear_conversacion(*, usuario):
+    """Crea una conversación de chat vacía para el usuario."""
+    return Conversacion.objects.create(usuario=usuario)
+
+
+def enviar_mensaje_chat(*, conversacion, contenido):
+    """Guarda el mensaje del usuario y encola el procesamiento con el LLM local.
+
+    Returns:
+        El MensajeChat del usuario recién creado.
+    """
+    mensaje = MensajeChat.objects.create(
+        conversacion=conversacion, rol=MensajeChat.Rol.USUARIO, contenido=contenido
+    )
+    if not conversacion.titulo:
+        conversacion.titulo = contenido[:60]
+    conversacion.save()  # actualiza fecha_actualizacion (auto_now) y, si corresponde, el título
+
+    from .tasks import tarea_procesar_mensaje_chat
+
+    tarea_procesar_mensaje_chat.delay(mensaje.pk)
+    return mensaje
+
+
+def procesar_mensaje_con_llm(*, mensaje_pk):
+    """Genera la respuesta del asistente para el último mensaje de una conversación.
+
+    Usa tool calling: si el modelo pide ejecutar una herramienta, se ejecuta vía
+    `llm_tools.ejecutar_tool` (lista blanca) y el resultado se le devuelve al modelo
+    antes de pedirle la respuesta final. Llamada exclusivamente por
+    `tasks.tarea_procesar_mensaje_chat` (cola "ia").
+    """
+    mensaje_usuario = MensajeChat.objects.select_related("conversacion").get(pk=mensaje_pk)
+    conversacion = mensaje_usuario.conversacion
+
+    historial = conversacion.mensajes.order_by("fecha_creacion")
+    mensajes_llm = [{"role": "system", "content": _PROMPT_SISTEMA_CHAT}]
+    mensajes_llm += [{"role": _ROL_A_OLLAMA[m.rol], "content": m.contenido} for m in historial]
+
+    tools_usadas = []
+    try:
+        contenido_final = (
+            "No pude completar la consulta (demasiados pasos). Probá reformular la pregunta."
+        )
+        for _ in range(MAX_ITERACIONES_TOOLS):
+            respuesta = llm_client.chat(mensajes_llm, tools=llm_tools.definiciones_tools())
+            mensaje_llm = respuesta["message"]
+            tool_calls = mensaje_llm.get("tool_calls") or []
+
+            if not tool_calls:
+                contenido_final = mensaje_llm.get("content", "")
+                break
+
+            mensajes_llm.append(
+                {
+                    "role": "assistant",
+                    "content": mensaje_llm.get("content", ""),
+                    "tool_calls": tool_calls,
+                }
+            )
+            for llamada in tool_calls:
+                nombre = llamada["function"]["name"]
+                argumentos = llamada["function"].get("arguments") or {}
+                resultado = llm_tools.ejecutar_tool(nombre, argumentos)
+                tools_usadas.append({"tool": nombre, "argumentos": argumentos})
+                mensajes_llm.append(
+                    {"role": "tool", "name": nombre, "content": json.dumps(resultado, default=str)}
+                )
+
+        MensajeChat.objects.create(
+            conversacion=conversacion,
+            rol=MensajeChat.Rol.ASISTENTE,
+            contenido=contenido_final,
+            tools_usadas=tools_usadas or None,
+        )
+        conversacion.save()  # toca fecha_actualizacion
+    except Exception as exc:
+        MensajeChat.objects.create(
+            conversacion=conversacion,
+            rol=MensajeChat.Rol.ASISTENTE,
+            contenido=f"No pude responder: el servicio de IA no está disponible ({exc}).",
+        )
+        conversacion.save()
+        raise
+
+
+def marcar_chats_vencidos(*, minutos=10):
+    """Inserta una respuesta de error en conversaciones cuyo último mensaje es del
+    usuario y quedó sin contestar por más de `minutos` (LLM no disponible).
+
+    Returns:
+        Cantidad de conversaciones marcadas como vencidas.
+    """
+    limite = timezone.now() - datetime.timedelta(minutes=minutos)
+    count = 0
+    for conversacion in Conversacion.objects.all():
+        ultimo = conversacion.mensajes.order_by("-fecha_creacion").first()
+        if (
+            ultimo is not None
+            and ultimo.rol == MensajeChat.Rol.USUARIO
+            and ultimo.fecha_creacion < limite
+        ):
+            MensajeChat.objects.create(
+                conversacion=conversacion,
+                rol=MensajeChat.Rol.ASISTENTE,
+                contenido="El servicio de IA no está disponible en este momento. Intentá nuevamente más tarde.",
+            )
+            conversacion.save()
+            count += 1
+    return count

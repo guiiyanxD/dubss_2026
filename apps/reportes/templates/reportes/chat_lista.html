@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+
+{% block title %}Chat IA{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="mb-0">Chat con IA</h2>
+        <p class="text-muted mb-0">Consultas en lenguaje natural sobre los datos del sistema (LLM local)</p>
+    </div>
+    <form method="post">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-primary">
+            <i class="bi bi-plus-lg me-1"></i>Nueva conversación
+        </button>
+    </form>
+</div>
+
+{% if conversaciones %}
+<div class="list-group">
+    {% for c in conversaciones %}
+    <a href="{% url 'reportes:chat_detalle' c.pk %}"
+       class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+        <span>{{ c.titulo|default:"(sin mensajes)" }}</span>
+        <small class="text-muted">{{ c.fecha_actualizacion|date:"d/m/Y H:i" }}</small>
+    </a>
+    {% endfor %}
+</div>
+{% else %}
+<div class="text-center py-5 text-muted">
+    <p class="fs-5">Todavía no iniciaste ninguna conversación.</p>
+</div>
+{% endif %}
+{% endblock %}

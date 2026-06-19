@@ -9,6 +9,7 @@ from apps.postulaciones.models import Postulacion
 
 from . import services
 from .forms import FiltroDashboardForm, GenerarRankingForm
+from .models import Conversacion, ResumenIA
 
 
 def _es_director(user):
@@ -151,3 +152,50 @@ def dashboard_view(request):
 
     template = "reportes/_dashboard_kpis.html" if request.htmx else "reportes/dashboard.html"
     return render(request, template, contexto)
+
+
+@director_required
+def resumen_ia_solicitar_view(request):
+    convocatoria_pk = request.POST.get("convocatoria")
+    convocatoria = get_object_or_404(Convocatoria, pk=convocatoria_pk) if convocatoria_pk else None
+    resumen = services.solicitar_resumen_ia(
+        usuario=request.user,
+        convocatoria=convocatoria,
+        prompt_adicional=request.POST.get("prompt_adicional", ""),
+    )
+    return render(request, "reportes/_resumen_ia_estado.html", {"resumen": resumen})
+
+
+@director_required
+def resumen_ia_estado_view(request, resumen_pk):
+    resumen = get_object_or_404(ResumenIA, pk=resumen_pk)
+    return render(request, "reportes/_resumen_ia_estado.html", {"resumen": resumen})
+
+
+@director_required
+def chat_lista_view(request):
+    if request.method == "POST":
+        conversacion = services.crear_conversacion(usuario=request.user)
+        return redirect("reportes:chat_detalle", conversacion_pk=conversacion.pk)
+
+    conversaciones = Conversacion.objects.filter(usuario=request.user)
+    return render(request, "reportes/chat_lista.html", {"conversaciones": conversaciones})
+
+
+@director_required
+def chat_detalle_view(request, conversacion_pk):
+    conversacion = get_object_or_404(Conversacion, pk=conversacion_pk, usuario=request.user)
+
+    if request.method == "POST":
+        contenido = request.POST.get("contenido", "").strip()
+        if contenido:
+            services.enviar_mensaje_chat(conversacion=conversacion, contenido=contenido)
+        return render(request, "reportes/_chat_mensajes.html", {"conversacion": conversacion})
+
+    return render(request, "reportes/chat_detalle.html", {"conversacion": conversacion})
+
+
+@director_required
+def chat_estado_view(request, conversacion_pk):
+    conversacion = get_object_or_404(Conversacion, pk=conversacion_pk, usuario=request.user)
+    return render(request, "reportes/_chat_mensajes.html", {"conversacion": conversacion})

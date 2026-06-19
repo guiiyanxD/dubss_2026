@@ -8,6 +8,9 @@ celery==5.6.*
 django-celery-beat==2.9.*
 redis==5.2.*
 
+# LLM local
+ollama==0.4.*
+
 # Forms & UI
 django-crispy-forms==2.3
 crispy-bootstrap5==2024.10

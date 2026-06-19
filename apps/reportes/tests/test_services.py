@@ -1,12 +1,16 @@
+import datetime
 from decimal import Decimal
+from unittest.mock import patch
 
 import pytest
+from django.utils import timezone
 
 from apps.acceso.models import Usuario
 from apps.configuracion.models import FormularioSocioeconomico
 from apps.convocatorias.models import Beca, Convocatoria
 from apps.postulaciones.models import Postulacion
 from apps.reportes import services
+from apps.reportes.models import MensajeChat, ResumenIA
 
 
 @pytest.fixture
@@ -141,3 +145,147 @@ def test_exportar_excel_retorna_bytes(postulaciones_aprobadas, convocatoria):
     assert len(xlsx) > 0
     # Magic bytes de ZIP (formato XLSX)
     assert xlsx[:2] == b"PK"
+
+
+@pytest.mark.django_db
+def test_solicitar_resumen_ia_encola_tarea(director, convocatoria):
+    with patch("apps.reportes.tasks.tarea_generar_resumen_ia.delay") as mock_delay:
+        resumen = services.solicitar_resumen_ia(usuario=director, convocatoria=convocatoria)
+
+    assert resumen.estado == ResumenIA.Estado.PENDIENTE
+    assert resumen.convocatoria == convocatoria
+    mock_delay.assert_called_once_with(resumen.pk)
+
+
+@pytest.mark.django_db
+def test_generar_resumen_con_llm_completa_correctamente(director, convocatoria):
+    resumen = ResumenIA.objects.create(usuario=director, convocatoria=convocatoria)
+
+    with patch("apps.reportes.services.llm_client.chat") as mock_chat:
+        mock_chat.return_value = {"message": {"content": "Resumen de prueba."}}
+        services.generar_resumen_con_llm(resumen_pk=resumen.pk)
+
+    resumen.refresh_from_db()
+    assert resumen.estado == ResumenIA.Estado.COMPLETADO
+    assert resumen.resultado == "Resumen de prueba."
+    assert resumen.fecha_completado is not None
+
+
+@pytest.mark.django_db
+def test_generar_resumen_con_llm_marca_error_si_falla(director, convocatoria):
+    resumen = ResumenIA.objects.create(usuario=director, convocatoria=convocatoria)
+
+    with patch(
+        "apps.reportes.services.llm_client.chat", side_effect=ConnectionError("sin conexión")
+    ):
+        with pytest.raises(ConnectionError):
+            services.generar_resumen_con_llm(resumen_pk=resumen.pk)
+
+    resumen.refresh_from_db()
+    assert resumen.estado == ResumenIA.Estado.ERROR
+    assert "sin conexión" in resumen.error_detalle
+
+
+@pytest.mark.django_db
+def test_marcar_resumenes_ia_vencidos(director, convocatoria):
+    resumen = ResumenIA.objects.create(usuario=director, convocatoria=convocatoria)
+    vencido = timezone.now() - datetime.timedelta(minutes=20)
+    ResumenIA.objects.filter(pk=resumen.pk).update(fecha_creacion=vencido)
+
+    count = services.marcar_resumenes_ia_vencidos(minutos=10)
+
+    resumen.refresh_from_db()
+    assert count == 1
+    assert resumen.estado == ResumenIA.Estado.ERROR
+
+
+@pytest.mark.django_db
+def test_enviar_mensaje_chat_encola_tarea(director):
+    conversacion = services.crear_conversacion(usuario=director)
+
+    with patch("apps.reportes.tasks.tarea_procesar_mensaje_chat.delay") as mock_delay:
+        mensaje = services.enviar_mensaje_chat(conversacion=conversacion, contenido="Hola")
+
+    assert mensaje.rol == MensajeChat.Rol.USUARIO
+    conversacion.refresh_from_db()
+    assert conversacion.titulo == "Hola"
+    mock_delay.assert_called_once_with(mensaje.pk)
+
+
+@pytest.mark.django_db
+def test_procesar_mensaje_con_llm_sin_tools(director):
+    conversacion = services.crear_conversacion(usuario=director)
+    mensaje = MensajeChat.objects.create(
+        conversacion=conversacion, rol=MensajeChat.Rol.USUARIO, contenido="Hola"
+    )
+
+    with patch("apps.reportes.services.llm_client.chat") as mock_chat:
+        mock_chat.return_value = {
+            "message": {"content": "Hola, ¿en qué puedo ayudarte?", "tool_calls": []}
+        }
+        services.procesar_mensaje_con_llm(mensaje_pk=mensaje.pk)
+
+    respuesta = conversacion.mensajes.filter(rol=MensajeChat.Rol.ASISTENTE).first()
+    assert respuesta is not None
+    assert respuesta.contenido == "Hola, ¿en qué puedo ayudarte?"
+    assert respuesta.tools_usadas is None
+
+
+@pytest.mark.django_db
+def test_procesar_mensaje_con_llm_con_tool_call(director, convocatoria):
+    conversacion = services.crear_conversacion(usuario=director)
+    mensaje = MensajeChat.objects.create(
+        conversacion=conversacion,
+        rol=MensajeChat.Rol.USUARIO,
+        contenido="¿Cuántas convocatorias hay?",
+    )
+
+    respuestas_simuladas = [
+        {
+            "message": {
+                "content": "",
+                "tool_calls": [{"function": {"name": "listar_convocatorias", "arguments": {}}}],
+            }
+        },
+        {"message": {"content": "Hay 1 convocatoria registrada.", "tool_calls": []}},
+    ]
+
+    with patch("apps.reportes.services.llm_client.chat", side_effect=respuestas_simuladas):
+        services.procesar_mensaje_con_llm(mensaje_pk=mensaje.pk)
+
+    respuesta = conversacion.mensajes.filter(rol=MensajeChat.Rol.ASISTENTE).first()
+    assert respuesta.contenido == "Hay 1 convocatoria registrada."
+    assert respuesta.tools_usadas == [{"tool": "listar_convocatorias", "argumentos": {}}]
+
+
+@pytest.mark.django_db
+def test_procesar_mensaje_con_llm_marca_error_si_falla(director):
+    conversacion = services.crear_conversacion(usuario=director)
+    mensaje = MensajeChat.objects.create(
+        conversacion=conversacion, rol=MensajeChat.Rol.USUARIO, contenido="Hola"
+    )
+
+    with patch(
+        "apps.reportes.services.llm_client.chat", side_effect=ConnectionError("sin conexión")
+    ):
+        with pytest.raises(ConnectionError):
+            services.procesar_mensaje_con_llm(mensaje_pk=mensaje.pk)
+
+    respuesta = conversacion.mensajes.filter(rol=MensajeChat.Rol.ASISTENTE).first()
+    assert respuesta is not None
+    assert "no está disponible" in respuesta.contenido
+
+
+@pytest.mark.django_db
+def test_marcar_chats_vencidos(director):
+    conversacion = services.crear_conversacion(usuario=director)
+    mensaje = MensajeChat.objects.create(
+        conversacion=conversacion, rol=MensajeChat.Rol.USUARIO, contenido="Hola"
+    )
+    vencido = timezone.now() - datetime.timedelta(minutes=20)
+    MensajeChat.objects.filter(pk=mensaje.pk).update(fecha_creacion=vencido)
+
+    count = services.marcar_chats_vencidos(minutos=10)
+
+    assert count == 1
+    assert conversacion.mensajes.filter(rol=MensajeChat.Rol.ASISTENTE).exists()

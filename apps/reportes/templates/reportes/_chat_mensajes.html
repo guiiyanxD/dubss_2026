@@ -1,0 +1,42 @@
+{% comment %}
+Partial HTMX de polling. Mientras el último mensaje sea del usuario (esperando
+respuesta del asistente) se re-renderiza solo (cada 2s); al llegar la respuesta, el
+div ya no tiene hx-trigger y el polling se detiene solo.
+{% endcomment %}
+<div id="chat-mensajes"
+     {% if conversacion.mensajes.last.rol == "USUARIO" %}
+     hx-get="{% url 'reportes:chat_estado' conversacion.pk %}"
+     hx-trigger="every 2s"
+     hx-swap="outerHTML"
+     {% endif %}>
+    {% for m in conversacion.mensajes.all %}
+        {% if m.rol == "USUARIO" %}
+        <div class="d-flex justify-content-end mb-2">
+            <div class="bg-primary text-white rounded-3 px-3 py-2" style="max-width: 75%;">
+                {{ m.contenido|linebreaksbr }}
+            </div>
+        </div>
+        {% else %}
+        <div class="d-flex justify-content-start mb-2">
+            <div class="bg-light border rounded-3 px-3 py-2" style="max-width: 75%;">
+                {{ m.contenido|linebreaksbr }}
+                {% if m.tools_usadas %}
+                <div class="text-muted small mt-1 border-top pt-1">
+                    <i class="bi bi-tools me-1"></i>{% for t in m.tools_usadas %}{{ t.tool }}{% if not forloop.last %}, {% endif %}{% endfor %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+    {% empty %}
+        <p class="text-muted text-center py-4">Escribí tu primera pregunta abajo.</p>
+    {% endfor %}
+    {% if conversacion.mensajes.last.rol == "USUARIO" %}
+    <div class="d-flex justify-content-start mb-2">
+        <div class="bg-light border rounded-3 px-3 py-2 text-muted d-flex align-items-center gap-2">
+            <div class="spinner-border spinner-border-sm" role="status"></div>
+            El asistente está pensando…
+        </div>
+    </div>
+    {% endif %}
+</div>

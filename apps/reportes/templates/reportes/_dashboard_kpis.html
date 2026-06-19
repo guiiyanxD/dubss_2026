@@ -3,6 +3,29 @@ Partial HTMX: se re-renderiza solo (sin layout) cuando cambia el formulario de f
 en dashboard.html. No usar {% extends %} ni {% block %} aquí.
 {% endcomment %}
 
+<div class="card shadow-sm mb-4">
+    <div class="card-header"><i class="bi bi-stars me-1"></i>Resumen ejecutivo con IA</div>
+    <div class="card-body">
+        <form hx-post="{% url 'reportes:resumen_ia_solicitar' %}"
+              hx-target="#resumen-ia-container"
+              hx-swap="outerHTML"
+              class="row g-2 align-items-end">
+            {% csrf_token %}
+            <input type="hidden" name="convocatoria" value="{{ form.convocatoria.value|default:'' }}">
+            <div class="col-md-9">
+                <textarea name="prompt_adicional" class="form-control" rows="2"
+                          placeholder="Instrucción opcional para el LLM, ej: enfocate en la tasa de rechazo..."></textarea>
+            </div>
+            <div class="col-md-3">
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class="bi bi-stars me-1"></i>Generar resumen
+                </button>
+            </div>
+        </form>
+        <div id="resumen-ia-container" class="mt-3"></div>
+    </div>
+</div>
+
 <div class="row g-3 mb-4">
     <div class="col-md-3">
         <div class="card text-center shadow-sm h-100">

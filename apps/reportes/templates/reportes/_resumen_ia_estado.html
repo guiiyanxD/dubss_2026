@@ -1,0 +1,28 @@
+{% comment %}
+Partial HTMX de polling. Mientras el estado sea PENDIENTE/PROCESANDO se re-renderiza
+solo (cada 2s); al llegar a un estado terminal, el div ya no tiene hx-trigger y el
+polling se detiene solo.
+{% endcomment %}
+<div id="resumen-ia-container"
+     {% if resumen.estado == "PENDIENTE" or resumen.estado == "PROCESANDO" %}
+     hx-get="{% url 'reportes:resumen_ia_estado' resumen.pk %}"
+     hx-trigger="every 2s"
+     hx-swap="outerHTML"
+     {% endif %}>
+    {% if resumen.estado == "COMPLETADO" %}
+        <div class="alert alert-success mb-0">
+            <strong><i class="bi bi-stars me-1"></i>Resumen ejecutivo (IA):</strong>
+            <p class="mb-0 mt-2">{{ resumen.resultado|linebreaksbr }}</p>
+        </div>
+    {% elif resumen.estado == "ERROR" %}
+        <div class="alert alert-danger mb-0">
+            <strong>No se pudo generar el resumen.</strong>
+            <p class="mb-0 mt-2">{{ resumen.error_detalle }}</p>
+        </div>
+    {% else %}
+        <div class="alert alert-info mb-0 d-flex align-items-center gap-2">
+            <div class="spinner-border spinner-border-sm" role="status"></div>
+            Generando resumen con IA local… (puede tardar uno o dos minutos)
+        </div>
+    {% endif %}
+</div>

@@ -135,6 +135,19 @@ CELERY_TASK_SERIALIZER = "json"
 CELERY_RESULT_SERIALIZER = "json"
 CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
 
+# Tareas de IA enrutadas a la cola "ia": solo la consume el worker que tiene
+# Ollama disponible (PC de mesa en producción, contenedor "ollama" en dev). El
+# worker de Render arranca sin -Q, así que por defecto solo escucha la cola
+# "celery" y nunca recibe estas tareas.
+CELERY_TASK_ROUTES = {
+    "apps.reportes.tasks.tarea_generar_resumen_ia": {"queue": "ia"},
+    "apps.reportes.tasks.tarea_procesar_mensaje_chat": {"queue": "ia"},
+}
+
+# LLM local (Ollama)
+OLLAMA_BASE_URL = config("OLLAMA_BASE_URL", default="http://ollama:11434")
+OLLAMA_MODEL = config("OLLAMA_MODEL", default="qwen2.5:3b")
+
 # Email
 EMAIL_HOST = config("EMAIL_HOST", default="localhost")
 EMAIL_PORT = config("EMAIL_PORT", default=587, cast=int)
