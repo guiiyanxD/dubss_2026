@@ -1,5 +1,7 @@
 from django import forms
 
+from apps.convocatorias.models import Convocatoria
+
 
 class GenerarRankingForm(forms.Form):
     cupo = forms.IntegerField(
@@ -12,4 +14,25 @@ class GenerarRankingForm(forms.Form):
         min_value=0,
         initial=0,
         help_text="Número de postulaciones en lista de espera (0 para ninguna).",
+    )
+
+
+class FiltroDashboardForm(forms.Form):
+    """Filtros del dashboard de KPIs (CU26): convocatoria y rango de fechas."""
+
+    convocatoria = forms.ModelChoiceField(
+        label="Convocatoria",
+        queryset=Convocatoria.objects.order_by("-fecha_apertura"),
+        required=False,
+        empty_label="Todas las convocatorias",
+    )
+    fecha_desde = forms.DateField(
+        label="Desde",
+        required=False,
+        widget=forms.DateInput(attrs={"type": "date"}),
+    )
+    fecha_hasta = forms.DateField(
+        label="Hasta",
+        required=False,
+        widget=forms.DateInput(attrs={"type": "date"}),
     )

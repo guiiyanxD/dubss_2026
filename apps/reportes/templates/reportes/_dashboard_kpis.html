@@ -1,0 +1,111 @@
+{% comment %}
+Partial HTMX: se re-renderiza solo (sin layout) cuando cambia el formulario de filtros
+en dashboard.html. No usar {% extends %} ni {% block %} aquí.
+{% endcomment %}
+
+<div class="row g-3 mb-4">
+    <div class="col-md-3">
+        <div class="card text-center shadow-sm h-100">
+            <div class="card-body">
+                <div class="fs-3 fw-bold text-primary">{{ indicadores_generales.promedio_familiares }}</div>
+                <div class="text-muted small">Promedio de familiares</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center shadow-sm h-100">
+            <div class="card-body">
+                <div class="fs-3 fw-bold text-primary">{{ indicadores_generales.pct_completos }}%</div>
+                <div class="text-muted small">Formularios completos</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center shadow-sm h-100">
+            <div class="card-body">
+                <div class="fs-3 fw-bold text-primary">{{ indicadores_generales.pct_discapacidad }}%</div>
+                <div class="text-muted small">Con discapacidad</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center shadow-sm h-100">
+            <div class="card-body">
+                <div class="fs-3 fw-bold text-primary">{{ latencia_notificaciones.minutos_promedio }} min</div>
+                <div class="text-muted small">Latencia envío de notificaciones</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<h4 class="mb-3">Demanda y convocatorias</h4>
+<div class="row g-3 mb-4">
+    <div class="col-lg-4"><div class="card shadow-sm"><div class="card-body">{{ grafico_demanda_beca|safe }}</div></div></div>
+    <div class="col-lg-4"><div class="card shadow-sm"><div class="card-body">{{ grafico_tasa_adjudicacion_convocatoria|safe }}</div></div></div>
+    <div class="col-lg-4"><div class="card shadow-sm"><div class="card-body">{{ grafico_lista_espera|safe }}</div></div></div>
+</div>
+
+<h4 class="mb-3">Embudo de postulaciones</h4>
+<div class="row g-3 mb-4">
+    <div class="col-lg-5"><div class="card shadow-sm"><div class="card-body">{{ grafico_embudo|safe }}</div></div></div>
+    <div class="col-lg-3"><div class="card shadow-sm"><div class="card-body">{{ grafico_rechazos|safe }}</div></div></div>
+    <div class="col-lg-4"><div class="card shadow-sm"><div class="card-body">{{ grafico_tiempos_etapa|safe }}</div></div></div>
+</div>
+
+<h4 class="mb-3">Validación documental</h4>
+<div class="row g-3 mb-4">
+    <div class="col-lg-8"><div class="card shadow-sm"><div class="card-body">{{ grafico_validacion_documental|safe }}</div></div></div>
+    <div class="col-lg-4">
+        <div class="card shadow-sm h-100">
+            <div class="card-body text-center d-flex flex-column justify-content-center">
+                <div class="text-muted small mb-1">Mayor cuello de botella</div>
+                <div class="fs-5 fw-bold">{{ documento_mayor_rechazo.tipo_documento|default:"—" }}</div>
+                <div class="fs-3 text-danger fw-bold">{{ documento_mayor_rechazo.porcentaje_rechazo }}%</div>
+                <div class="text-muted small">tasa de rechazo</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<h4 class="mb-3">Perfil socioeconómico</h4>
+<div class="row g-3 mb-4">
+    <div class="col-lg-6"><div class="card shadow-sm"><div class="card-body">{{ grafico_ingreso_familiar|safe }}</div></div></div>
+    <div class="col-lg-6"><div class="card shadow-sm"><div class="card-body">{{ grafico_puntaje|safe }}</div></div></div>
+</div>
+<div class="row g-3 mb-4">
+    {% for campo, grafico in graficos_distribucion_choices.items %}
+    <div class="col-lg-3"><div class="card shadow-sm"><div class="card-body">{{ grafico|safe }}</div></div></div>
+    {% endfor %}
+</div>
+
+<h4 class="mb-3">Ranking y adjudicación</h4>
+<div class="row g-3 mb-4">
+    <div class="col-lg-7"><div class="card shadow-sm"><div class="card-body">{{ grafico_comparacion_puntaje|safe }}</div></div></div>
+    <div class="col-lg-5">
+        <div class="card shadow-sm">
+            <div class="card-header">Puntaje de corte por convocatoria</div>
+            <table class="table table-sm mb-0">
+                <thead><tr><th>Convocatoria</th><th class="text-end">Corte</th></tr></thead>
+                <tbody>
+                {% for nombre, corte in punto_corte_por_convocatoria %}
+                    <tr><td>{{ nombre }}</td><td class="text-end">{{ corte }}</td></tr>
+                {% empty %}
+                    <tr><td colspan="2" class="text-muted text-center py-3">Sin adjudicaciones todavía</td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<h4 class="mb-3">Académico</h4>
+<div class="row g-3 mb-4">
+    <div class="col-lg-4"><div class="card shadow-sm"><div class="card-body">{{ grafico_carreras|safe }}</div></div></div>
+    <div class="col-lg-4"><div class="card shadow-sm"><div class="card-body">{{ grafico_tasa_carrera|safe }}</div></div></div>
+    <div class="col-lg-4"><div class="card shadow-sm"><div class="card-body">{{ grafico_anio_ingreso|safe }}</div></div></div>
+</div>
+
+<h4 class="mb-3">Notificaciones</h4>
+<div class="row g-3 mb-4">
+    <div class="col-lg-6"><div class="card shadow-sm"><div class="card-body">{{ grafico_entrega_notificaciones|safe }}</div></div></div>
+</div>

@@ -8,6 +8,8 @@ from openpyxl.styles import Alignment, Font, PatternFill
 from apps.postulaciones.models import Postulacion
 from apps.postulaciones.signals import resultado_adjudicacion
 
+from . import charts, selectors
+
 
 def procesar_formularios_socioeconomicos(*, convocatoria):
     """CU23 — Calcula el puntaje socioeconómico para postulaciones APROBADAS.
@@ -216,3 +218,120 @@ def exportar_reporte_pdf(*, convocatoria, request=None):
     html_str = render_to_string("reportes/reporte_pdf.html", contexto)
     pdf_bytes = HTML(string=html_str).write_pdf()
     return pdf_bytes
+
+
+def construir_contexto_dashboard(*, convocatoria=None, fecha_desde=None, fecha_hasta=None):
+    """CU26 — Orquesta selectors.py + charts.py para el dashboard de KPIs.
+
+    Args:
+        convocatoria: Instancia de Convocatoria para filtrar, o None para todas.
+        fecha_desde: date mínima de fecha_creacion a incluir, o None.
+        fecha_hasta: date máxima de fecha_creacion a incluir, o None.
+
+    Returns:
+        Dict listo para renderizar en dashboard.html / _dashboard_kpis.html.
+    """
+    filtro = {"convocatoria": convocatoria, "fecha_desde": fecha_desde, "fecha_hasta": fecha_hasta}
+
+    demanda_beca = selectors.postulaciones_por_beca(**filtro)
+    tasa_adj_conv = selectors.tasa_adjudicacion_por_convocatoria()
+    espera_conv = selectors.tamano_lista_espera_por_convocatoria()
+
+    embudo = selectors.embudo_estados(**filtro)
+    rechazos = selectors.desglose_rechazos(**filtro)
+    tiempos_etapa = selectors.tiempos_promedio_por_etapa(convocatoria=convocatoria)
+
+    validacion_doc = selectors.validacion_por_tipo_documento()
+    mayor_rechazo = selectors.documento_mayor_rechazo()
+
+    ingreso = selectors.distribucion_ingreso_familiar(convocatoria=convocatoria)
+    puntaje = selectors.distribucion_puntaje_socioeconomico(convocatoria=convocatoria)
+    indicadores = selectors.indicadores_generales(convocatoria=convocatoria)
+
+    punto_corte = selectors.punto_corte_por_convocatoria()
+
+    carreras = selectors.postulantes_por_carrera(convocatoria=convocatoria)
+    tasa_carrera = selectors.tasa_adjudicacion_por_carrera()
+    anio_ingreso = selectors.postulantes_por_anio_ingreso(convocatoria=convocatoria)
+
+    entrega = selectors.tasa_entrega_notificaciones(
+        fecha_desde=fecha_desde, fecha_hasta=fecha_hasta
+    )
+    latencia = selectors.latencia_envio_notificaciones()
+
+    if convocatoria is not None:
+        comparacion = selectors.comparacion_puntaje_por_resultado(convocatoria=convocatoria)
+        grafico_comparacion = charts.fig_boxplot(
+            datos=comparacion, titulo="Puntaje socioeconómico por resultado"
+        )
+    else:
+        grafico_comparacion = charts.vacio(
+            "Seleccioná una convocatoria específica para comparar puntajes por resultado."
+        )
+
+    return {
+        "grafico_demanda_beca": charts.fig_barras(**demanda_beca, titulo="Postulaciones por beca"),
+        "grafico_tasa_adjudicacion_convocatoria": charts.fig_barras(
+            **tasa_adj_conv,
+            titulo="Tasa de adjudicación por convocatoria",
+            horizontal=True,
+            sufijo="%",
+        ),
+        "grafico_lista_espera": charts.fig_barras(
+            **espera_conv, titulo="Tamaño de lista de espera por convocatoria"
+        ),
+        "grafico_embudo": charts.fig_funnel(**embudo, titulo="Embudo de postulaciones"),
+        "grafico_rechazos": charts.fig_donut(**rechazos, titulo="Motivos de rechazo"),
+        "grafico_tiempos_etapa": charts.fig_barras(
+            **tiempos_etapa, titulo="Tiempo promedio entre etapas", horizontal=True, sufijo=" días"
+        ),
+        "grafico_validacion_documental": charts.fig_barras_apiladas(
+            etiquetas=validacion_doc["etiquetas"],
+            series={
+                "Aprobado": validacion_doc["aprobado"],
+                "Rechazado": validacion_doc["rechazado"],
+                "Pendiente": validacion_doc["pendiente"],
+            },
+            titulo="Validación documental por tipo",
+        ),
+        "documento_mayor_rechazo": mayor_rechazo,
+        "grafico_ingreso_familiar": charts.fig_histograma(
+            valores=ingreso["valores"],
+            titulo="Distribución de ingreso familiar",
+            eje_x="Ingreso mensual familiar (ARS)",
+        ),
+        "grafico_puntaje": charts.fig_histograma(
+            valores=puntaje["valores"],
+            titulo="Distribución de puntaje socioeconómico",
+            eje_x="Puntaje",
+        ),
+        "grafico_comparacion_puntaje": grafico_comparacion,
+        "graficos_distribucion_choices": {
+            campo: charts.fig_donut(
+                **selectors.distribucion_choices(campo, convocatoria=convocatoria), titulo=titulo
+            )
+            for campo, titulo in [
+                ("situacion_laboral", "Situación laboral"),
+                ("situacion_habitacional", "Situación habitacional"),
+                ("dependencia_economica", "Dependencia económica"),
+                ("tipo_tenencia_vivienda", "Tenencia de vivienda"),
+            ]
+        },
+        "indicadores_generales": indicadores,
+        "punto_corte_por_convocatoria": list(
+            zip(punto_corte["etiquetas"], punto_corte["valores"], strict=True)
+        ),
+        "grafico_carreras": charts.fig_barras(
+            **carreras, titulo="Postulantes por carrera (top 10)", horizontal=True
+        ),
+        "grafico_tasa_carrera": charts.fig_barras(
+            **tasa_carrera, titulo="Tasa de adjudicación por carrera", horizontal=True, sufijo="%"
+        ),
+        "grafico_anio_ingreso": charts.fig_barras(
+            **anio_ingreso, titulo="Postulantes por año de ingreso"
+        ),
+        "grafico_entrega_notificaciones": charts.fig_donut(
+            **entrega, titulo="Estado de envío de notificaciones"
+        ),
+        "latencia_notificaciones": latencia,
+    }

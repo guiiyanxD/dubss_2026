@@ -8,7 +8,7 @@ from apps.convocatorias.models import Convocatoria
 from apps.postulaciones.models import Postulacion
 
 from . import services
-from .forms import GenerarRankingForm
+from .forms import FiltroDashboardForm, GenerarRankingForm
 
 
 def _es_director(user):
@@ -133,3 +133,21 @@ def exportar_pdf_view(request, convocatoria_pk):
     response = HttpResponse(pdf_bytes, content_type="application/pdf")
     response["Content-Disposition"] = f'attachment; filename="{nombre}"'
     return response
+
+
+@director_required
+def dashboard_view(request):
+    form = FiltroDashboardForm(request.GET or None)
+    convocatoria = fecha_desde = fecha_hasta = None
+    if form.is_valid():
+        convocatoria = form.cleaned_data["convocatoria"]
+        fecha_desde = form.cleaned_data["fecha_desde"]
+        fecha_hasta = form.cleaned_data["fecha_hasta"]
+
+    contexto = services.construir_contexto_dashboard(
+        convocatoria=convocatoria, fecha_desde=fecha_desde, fecha_hasta=fecha_hasta
+    )
+    contexto["form"] = form
+
+    template = "reportes/_dashboard_kpis.html" if request.htmx else "reportes/dashboard.html"
+    return render(request, template, contexto)

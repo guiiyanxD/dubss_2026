@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% load crispy_forms_tags %}
+
+{% block title %}Dashboard de KPIs{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="mb-0">Dashboard de KPIs</h2>
+        <p class="text-muted mb-0">Indicadores del proceso de becas — CU26</p>
+    </div>
+    <a href="{% url 'reportes:panel' %}" class="btn btn-secondary">← Volver al panel</a>
+</div>
+
+<form id="filtro-form"
+      hx-get="{% url 'reportes:dashboard' %}"
+      hx-target="#kpi-container"
+      hx-trigger="change"
+      hx-push-url="true"
+      class="card shadow-sm mb-4">
+    <div class="card-body row g-3 align-items-end">
+        <div class="col-md-5">{{ form.convocatoria|as_crispy_field }}</div>
+        <div class="col-md-3">{{ form.fecha_desde|as_crispy_field }}</div>
+        <div class="col-md-3">{{ form.fecha_hasta|as_crispy_field }}</div>
+        <div class="col-md-1">
+            <button type="submit" class="btn btn-primary w-100" title="Filtrar">
+                <i class="bi bi-funnel-fill"></i>
+            </button>
+        </div>
+    </div>
+</form>
+
+<div id="kpi-container">
+    {% include "reportes/_dashboard_kpis.html" %}
+</div>
+{% endblock %}

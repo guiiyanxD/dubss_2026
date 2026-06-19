@@ -17,6 +17,8 @@ develop-eggs/
 lib/
 lib64/
 *.md
+*.png
+*.puml
 # Django
 *.log
 local_settings.py
