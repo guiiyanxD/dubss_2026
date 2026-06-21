@@ -1,9 +1,10 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, user_passes_test
+from django.core.paginator import Paginator
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 
-from apps.convocatorias.models import Convocatoria
+from apps.convocatorias.models import Beca, Convocatoria
 
 from . import services
 from .exceptions import (
@@ -137,8 +138,50 @@ def imprimir_constancia_view(request, pk):
 
 @staff_required
 def cola_revision_view(request):
-    postulaciones = services.listar_cola_revision()
-    return render(request, "postulaciones/cola_revision.html", {"postulaciones": postulaciones})
+    estado = request.GET.get("estado", "")
+    convocatoria_id = request.GET.get("convocatoria", "")
+    beca_id = request.GET.get("beca", "")
+    busqueda = request.GET.get("q", "")
+
+    qs = services.listar_cola_revision(
+        estado=estado or None,
+        convocatoria_id=convocatoria_id or None,
+        beca_id=beca_id or None,
+        busqueda=busqueda or None,
+    )
+
+    # Opciones de los selects: solo convocatorias/becas con al menos una
+    # postulación en la cola completa (sin filtrar), para no ofrecer
+    # combinaciones que siempre den resultado vacío.
+    base_qs = services.listar_cola_revision()
+    convocatorias_disponibles = (
+        Convocatoria.objects.filter(postulaciones__in=base_qs).distinct().order_by("nombre")
+    )
+    becas_disponibles = Beca.objects.filter(postulaciones__in=base_qs).distinct().order_by("nombre")
+
+    paginator = Paginator(qs, 20)
+    page_obj = paginator.get_page(request.GET.get("page", 1))
+    page_range = paginator.get_elided_page_range(page_obj.number, on_each_side=2, on_ends=1)
+
+    params = request.GET.copy()
+    params.pop("page", None)
+    query_string = f"?{params.urlencode()}&" if params else "?"
+
+    return render(
+        request,
+        "postulaciones/cola_revision.html",
+        {
+            "page_obj": page_obj,
+            "page_range": page_range,
+            "query_string": query_string,
+            "estado": estado,
+            "convocatoria_id": convocatoria_id,
+            "beca_id": beca_id,
+            "busqueda": busqueda,
+            "convocatorias_disponibles": convocatorias_disponibles,
+            "becas_disponibles": becas_disponibles,
+        },
+    )
 
 
 @staff_required

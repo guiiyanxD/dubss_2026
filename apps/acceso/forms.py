@@ -10,7 +10,7 @@ class RegistroEstudianteForm(forms.Form):
     last_name = forms.CharField(label="Apellido", max_length=150)
     password1 = forms.CharField(label="Contraseña", widget=forms.PasswordInput)
     password2 = forms.CharField(label="Confirmar contraseña", widget=forms.PasswordInput)
-    legajo = forms.CharField(label="Legajo", max_length=20)
+    nro_registro = forms.CharField(label="Nro. Registro", max_length=20)
     carrera = forms.CharField(label="Carrera", max_length=150)
     anio_ingreso = forms.IntegerField(
         label="Año de ingreso",

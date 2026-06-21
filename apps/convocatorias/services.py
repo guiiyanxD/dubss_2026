@@ -1,3 +1,4 @@
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
 from django.utils import timezone
 
@@ -6,6 +7,7 @@ from .exceptions import (
     ConvocatoriaYaCerradaError,
     FechaInvalidaError,
     NombreDuplicadoError,
+    PonderacionInvalidaError,
 )
 from .models import Beca, Convocatoria, TipoDocumento
 from .signals import convocatoria_cerrada
@@ -159,31 +161,64 @@ def listar_convocatorias(*, para_estudiante=False, estado=None, busqueda=None):
 # ---------------------------------------------------------------------------
 
 
+def _pesos_default():
+    return {
+        "peso_ingreso": 40,
+        "peso_desempleo": 20,
+        "peso_familiares": 20,
+        "peso_no_propietario": 10,
+        "peso_sin_beca_previa": 10,
+    }
+
+
 @transaction.atomic
-def crear_beca(*, nombre, descripcion=""):
+def crear_beca(*, nombre, descripcion="", **pesos):
     """Crea un tipo de beca.
+
+    Args:
+        pesos: peso_ingreso/peso_desempleo/peso_familiares/peso_no_propietario/
+            peso_sin_beca_previa (CU15); por defecto reproducen la fórmula original.
 
     Raises:
         NombreDuplicadoError: Si ya existe una beca con ese nombre.
+        PonderacionInvalidaError: Si los pesos no suman 100.
     """
     if Beca.objects.filter(nombre=nombre).exists():
         raise NombreDuplicadoError(f"Ya existe una beca con el nombre '{nombre}'.")
-    return Beca.objects.create(nombre=nombre, descripcion=descripcion)
+    valores = {**_pesos_default(), **pesos}
+    beca = Beca(nombre=nombre, descripcion=descripcion, **valores)
+    try:
+        beca.full_clean()
+    except DjangoValidationError as exc:
+        raise PonderacionInvalidaError("; ".join(exc.messages)) from exc
+    beca.save()
+    return beca
 
 
 @transaction.atomic
-def editar_beca(*, beca, nombre, descripcion, activa):
+def editar_beca(*, beca, nombre, descripcion, activa, **pesos):
     """Actualiza los datos de una beca existente.
+
+    Args:
+        pesos: peso_ingreso/peso_desempleo/peso_familiares/peso_no_propietario/
+            peso_sin_beca_previa (CU15); si no se pasan, se conservan los actuales.
 
     Raises:
         NombreDuplicadoError: Si el nuevo nombre ya está en uso por otra beca.
+        PonderacionInvalidaError: Si los pesos no suman 100.
     """
     if Beca.objects.filter(nombre=nombre).exclude(pk=beca.pk).exists():
         raise NombreDuplicadoError(f"Ya existe una beca con el nombre '{nombre}'.")
     beca.nombre = nombre
     beca.descripcion = descripcion
     beca.activa = activa
-    beca.save(update_fields=["nombre", "descripcion", "activa"])
+    for campo, valor in pesos.items():
+        setattr(beca, campo, valor)
+    try:
+        beca.full_clean()
+    except DjangoValidationError as exc:
+        raise PonderacionInvalidaError("; ".join(exc.messages)) from exc
+    beca.save()
     return beca
 
 

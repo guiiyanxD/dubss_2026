@@ -39,6 +39,40 @@ class BecaForm(forms.Form):
     )
     activa = forms.BooleanField(label="Activa", required=False, initial=True)
 
+    # CU15 — Ponderación configurable. Los initial reproducen la fórmula original.
+    peso_ingreso = forms.IntegerField(
+        label="Peso: ingreso familiar (%)", min_value=0, max_value=100, initial=40
+    )
+    peso_desempleo = forms.IntegerField(
+        label="Peso: desempleo (%)", min_value=0, max_value=100, initial=20
+    )
+    peso_familiares = forms.IntegerField(
+        label="Peso: cantidad de familiares (%)", min_value=0, max_value=100, initial=20
+    )
+    peso_no_propietario = forms.IntegerField(
+        label="Peso: no propietario de vivienda (%)", min_value=0, max_value=100, initial=10
+    )
+    peso_sin_beca_previa = forms.IntegerField(
+        label="Peso: sin beca previa (%)", min_value=0, max_value=100, initial=10
+    )
+
+    def clean(self):
+        cleaned_data = super().clean()
+        campos_peso = [
+            "peso_ingreso",
+            "peso_desempleo",
+            "peso_familiares",
+            "peso_no_propietario",
+            "peso_sin_beca_previa",
+        ]
+        if all(campo in cleaned_data for campo in campos_peso):
+            suma = sum(cleaned_data[campo] for campo in campos_peso)
+            if suma != 100:
+                raise forms.ValidationError(
+                    f"La suma de los pesos de ponderación debe ser 100 (actual: {suma})."
+                )
+        return cleaned_data
+
 
 class TipoDocumentoForm(forms.Form):
     nombre = forms.CharField(label="Nombre", max_length=150)

@@ -31,7 +31,7 @@ def registro_estudiante_view(request):
                 password2=form.cleaned_data["password2"],
                 first_name=form.cleaned_data["first_name"],
                 last_name=form.cleaned_data["last_name"],
-                legajo=form.cleaned_data["legajo"],
+                nro_registro=form.cleaned_data["nro_registro"],
                 carrera=form.cleaned_data["carrera"],
                 anio_ingreso=form.cleaned_data["anio_ingreso"],
             )
@@ -43,5 +43,5 @@ def registro_estudiante_view(request):
         except EmailYaRegistradoError as e:
             form.add_error("email", str(e))
         except LegajoYaRegistradoError as e:
-            form.add_error("legajo", str(e))
+            form.add_error("nro_registro", str(e))
     return render(request, "acceso/registro.html", {"form": form})

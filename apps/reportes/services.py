@@ -19,7 +19,9 @@ from .models import Conversacion, MensajeChat, ResumenIA
 def procesar_formularios_socioeconomicos(*, convocatoria):
     """CU23 — Calcula el puntaje socioeconómico para postulaciones APROBADAS.
 
-    Usa Pandas para normalizar y ponderar los factores socioeconómicos.
+    Usa Pandas para normalizar y ponderar los factores socioeconómicos. Los pesos de
+    cada factor se toman de la Beca de cada postulación (CU15 — configurables por
+    Beca, ver `apps.convocatorias.models.Beca`), no de un valor global único.
     Actualiza cada Postulacion con su puntaje y la marca como PROCESADA.
 
     Args:
@@ -34,7 +36,7 @@ def procesar_formularios_socioeconomicos(*, convocatoria):
         Postulacion.objects.filter(
             convocatoria=convocatoria,
             estado=Postulacion.Estado.APROBADA,
-        ).select_related("formulario")
+        ).select_related("formulario", "beca")
     )
 
     if not postulaciones:
@@ -48,6 +50,11 @@ def procesar_formularios_socioeconomicos(*, convocatoria):
             "desempleado": p.formulario.situacion_laboral == "DESEMPLEADO",
             "no_propietario": p.formulario.situacion_habitacional != "PROPIETARIO",
             "sin_beca_previa": not p.formulario.tiene_beca_previa,
+            "peso_ingreso": p.beca.peso_ingreso,
+            "peso_desempleo": p.beca.peso_desempleo,
+            "peso_familiares": p.beca.peso_familiares,
+            "peso_no_propietario": p.beca.peso_no_propietario,
+            "peso_sin_beca_previa": p.beca.peso_sin_beca_previa,
         }
         for p in postulaciones
     ]
@@ -61,11 +68,11 @@ def procesar_formularios_socioeconomicos(*, convocatoria):
     df["familiares_norm"] = df["familiares"] / familiares_max if familiares_max > 0 else 0.0
 
     df["puntaje"] = (
-        (1 - df["ingreso_norm"]) * 40
-        + df["desempleado"].astype(int) * 20
-        + df["familiares_norm"] * 20
-        + df["no_propietario"].astype(int) * 10
-        + df["sin_beca_previa"].astype(int) * 10
+        (1 - df["ingreso_norm"]) * df["peso_ingreso"]
+        + df["desempleado"].astype(int) * df["peso_desempleo"]
+        + df["familiares_norm"] * df["peso_familiares"]
+        + df["no_propietario"].astype(int) * df["peso_no_propietario"]
+        + df["sin_beca_previa"].astype(int) * df["peso_sin_beca_previa"]
     ).round(2)
 
     for _, row in df.iterrows():
@@ -77,11 +84,16 @@ def procesar_formularios_socioeconomicos(*, convocatoria):
     return len(postulaciones)
 
 
-def generar_ranking(*, convocatoria, cupo, cupo_espera=None):
-    """CU24 — Ordena postulaciones PROCESADAS y asigna resultados finales.
+def generar_ranking(*, convocatoria, beca, cupo, cupo_espera=None):
+    """CU24 — Ordena postulaciones PROCESADAS de una Beca y asigna resultados finales.
+
+    El ranking se calcula POR BECA (no para toda la convocatoria junta): con pesos de
+    ponderación configurables por beca (CU15), los puntajes de becas distintas ya no
+    son comparables entre sí, así que cada beca compite solo contra sí misma.
 
     Args:
         convocatoria: Instancia de Convocatoria.
+        beca: Instancia de Beca (debe estar asociada a la convocatoria).
         cupo: Número de postulaciones a adjudicar.
         cupo_espera: Número de postulaciones en lista de espera (default = cupo).
 
@@ -94,6 +106,7 @@ def generar_ranking(*, convocatoria, cupo, cupo_espera=None):
     postulaciones = list(
         Postulacion.objects.filter(
             convocatoria=convocatoria,
+            beca=beca,
             estado=Postulacion.Estado.PROCESADA,
         )
         .select_related("estudiante", "beca")

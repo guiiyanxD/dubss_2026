@@ -1,4 +1,5 @@
 from django.db import transaction
+from django.db.models import Q
 from django.template.loader import render_to_string
 from django.utils import timezone
 
@@ -230,15 +231,28 @@ def listar_postulaciones_estudiante(*, estudiante):
     )
 
 
-def listar_cola_revision():
-    """Retorna postulaciones pendientes de revisión (ENVIADA o EN_REVISION)."""
-    return (
+def listar_cola_revision(*, estado=None, convocatoria_id=None, beca_id=None, busqueda=None):
+    """Retorna postulaciones pendientes de revisión (ENVIADA o EN_REVISION), con filtros opcionales."""
+    qs = (
         Postulacion.objects.filter(
             estado__in=[Postulacion.Estado.ENVIADA, Postulacion.Estado.EN_REVISION]
         )
-        .select_related("estudiante", "convocatoria", "beca")
+        .select_related("estudiante__perfil_estudiante", "convocatoria", "beca")
         .order_by("fecha_envio")
     )
+    if estado:
+        qs = qs.filter(estado=estado)
+    if convocatoria_id:
+        qs = qs.filter(convocatoria_id=convocatoria_id)
+    if beca_id:
+        qs = qs.filter(beca_id=beca_id)
+    if busqueda:
+        qs = qs.filter(
+            Q(estudiante__first_name__icontains=busqueda)
+            | Q(estudiante__last_name__icontains=busqueda)
+            | Q(estudiante__perfil_estudiante__nro_registro__icontains=busqueda)
+        )
+    return qs
 
 
 def marcar_rechazadas_por_cierre(*, convocatoria):

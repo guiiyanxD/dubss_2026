@@ -108,15 +108,78 @@ def test_procesar_formularios_calcula_puntajes(postulaciones_aprobadas, convocat
 
 
 @pytest.mark.django_db
+def test_procesar_formularios_usa_pesos_de_cada_beca(convocatoria):
+    """CU15 — cada postulación debe puntuarse con los pesos de SU beca, no un valor global."""
+    beca_ingreso = Beca.objects.create(
+        nombre="Beca Solo Ingreso",
+        peso_ingreso=100,
+        peso_desempleo=0,
+        peso_familiares=0,
+        peso_no_propietario=0,
+        peso_sin_beca_previa=0,
+    )
+    beca_desempleo = Beca.objects.create(
+        nombre="Beca Solo Desempleo",
+        peso_ingreso=0,
+        peso_desempleo=100,
+        peso_familiares=0,
+        peso_no_propietario=0,
+        peso_sin_beca_previa=0,
+    )
+    convocatoria.becas.add(beca_ingreso, beca_desempleo)
+
+    u1, f1 = _crear_estudiante(
+        "ingreso@t.com",
+        0,
+        1,
+        FormularioSocioeconomico.SituacionLaboral.EMPLEADO,
+        FormularioSocioeconomico.SituacionHabitacional.PROPIETARIO,
+    )
+    u2, f2 = _crear_estudiante(
+        "desempleo@t.com",
+        100000,
+        1,
+        FormularioSocioeconomico.SituacionLaboral.DESEMPLEADO,
+        FormularioSocioeconomico.SituacionHabitacional.PROPIETARIO,
+    )
+
+    p1 = Postulacion.objects.create(
+        estudiante=u1,
+        convocatoria=convocatoria,
+        beca=beca_ingreso,
+        formulario=f1,
+        estado=Postulacion.Estado.APROBADA,
+    )
+    p2 = Postulacion.objects.create(
+        estudiante=u2,
+        convocatoria=convocatoria,
+        beca=beca_desempleo,
+        formulario=f2,
+        estado=Postulacion.Estado.APROBADA,
+    )
+
+    services.procesar_formularios_socioeconomicos(convocatoria=convocatoria)
+
+    p1.refresh_from_db()
+    p2.refresh_from_db()
+    # p1 (beca_ingreso): ingreso mínimo del lote → (1 - 0) * 100 = 100, sin importar el desempleo.
+    assert p1.puntaje_socioeconomico == 100
+    # p2 (beca_desempleo): desempleado=True * 100 = 100, sin importar el ingreso máximo del lote.
+    assert p2.puntaje_socioeconomico == 100
+
+
+@pytest.mark.django_db
 def test_procesar_formularios_sin_aprobadas(convocatoria):
     cantidad = services.procesar_formularios_socioeconomicos(convocatoria=convocatoria)
     assert cantidad == 0
 
 
 @pytest.mark.django_db
-def test_generar_ranking_adjudica_correctamente(postulaciones_aprobadas, convocatoria):
+def test_generar_ranking_adjudica_correctamente(postulaciones_aprobadas, convocatoria, beca):
     services.procesar_formularios_socioeconomicos(convocatoria=convocatoria)
-    resultado = services.generar_ranking(convocatoria=convocatoria, cupo=1, cupo_espera=1)
+    resultado = services.generar_ranking(
+        convocatoria=convocatoria, beca=beca, cupo=1, cupo_espera=1
+    )
 
     estados = [p.estado for p in resultado]
     assert Postulacion.Estado.ADJUDICADA in estados
@@ -125,9 +188,11 @@ def test_generar_ranking_adjudica_correctamente(postulaciones_aprobadas, convoca
 
 
 @pytest.mark.django_db
-def test_generar_ranking_sin_espera(postulaciones_aprobadas, convocatoria):
+def test_generar_ranking_sin_espera(postulaciones_aprobadas, convocatoria, beca):
     services.procesar_formularios_socioeconomicos(convocatoria=convocatoria)
-    resultado = services.generar_ranking(convocatoria=convocatoria, cupo=1, cupo_espera=0)
+    resultado = services.generar_ranking(
+        convocatoria=convocatoria, beca=beca, cupo=1, cupo_espera=0
+    )
 
     estados = [p.estado for p in resultado]
     assert Postulacion.Estado.ADJUDICADA in estados
@@ -136,9 +201,9 @@ def test_generar_ranking_sin_espera(postulaciones_aprobadas, convocatoria):
 
 
 @pytest.mark.django_db
-def test_exportar_excel_retorna_bytes(postulaciones_aprobadas, convocatoria):
+def test_exportar_excel_retorna_bytes(postulaciones_aprobadas, convocatoria, beca):
     services.procesar_formularios_socioeconomicos(convocatoria=convocatoria)
-    services.generar_ranking(convocatoria=convocatoria, cupo=1, cupo_espera=1)
+    services.generar_ranking(convocatoria=convocatoria, beca=beca, cupo=1, cupo_espera=1)
 
     xlsx = services.exportar_ranking_excel(convocatoria=convocatoria)
     assert isinstance(xlsx, bytes)

@@ -7,6 +7,7 @@ from apps.convocatorias.exceptions import (
     ConvocatoriaYaCerradaError,
     FechaInvalidaError,
     NombreDuplicadoError,
+    PonderacionInvalidaError,
 )
 from apps.convocatorias.models import Convocatoria
 from apps.convocatorias.services import (
@@ -151,6 +152,37 @@ def test_editar_beca(db):
     editar_beca(beca=beca, nombre="Modificada", descripcion="Desc", activa=False)
     assert beca.nombre == "Modificada"
     assert beca.activa is False
+
+
+def test_crear_beca_pesos_personalizados(db):
+    beca = crear_beca(
+        nombre="Beca Pesos",
+        peso_ingreso=100,
+        peso_desempleo=0,
+        peso_familiares=0,
+        peso_no_propietario=0,
+        peso_sin_beca_previa=0,
+    )
+    assert beca.peso_ingreso == 100
+    assert beca.peso_desempleo == 0
+
+
+def test_crear_beca_pesos_no_suman_100(db):
+    with pytest.raises(PonderacionInvalidaError):
+        crear_beca(nombre="Beca Inválida", peso_ingreso=50, peso_desempleo=20)
+
+
+def test_editar_beca_pesos_no_suman_100(db):
+    beca = crear_beca(nombre="Otra Beca")
+    with pytest.raises(PonderacionInvalidaError):
+        editar_beca(
+            beca=beca,
+            nombre="Otra Beca",
+            descripcion="",
+            activa=True,
+            peso_ingreso=90,
+            peso_desempleo=90,
+        )
 
 
 # ---------------------------------------------------------------------------

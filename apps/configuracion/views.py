@@ -12,7 +12,6 @@ CAMPOS_FORMULARIO = [
     "cantidad_familiares",
     "situacion_habitacional",
     "tiene_beca_previa",
-    "observaciones",
     "numero_celular",
     "telefono_referencia",
     "dependencia_economica",
@@ -34,6 +33,7 @@ CAMPOS_FORMULARIO = [
     "detalle_otro_beneficio",
     "tiene_discapacidad",
     "detalle_discapacidad",
+    "observaciones",
 ]
 
 

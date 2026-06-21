@@ -58,7 +58,7 @@ class PerfilEstudiante(models.Model):
         on_delete=models.CASCADE,
         related_name="perfil_estudiante",
     )
-    legajo = models.CharField("legajo", max_length=20, unique=True)
+    nro_registro = models.CharField("Nro. Registro", max_length=20, unique=True)
     carrera = models.CharField("carrera", max_length=150)
     anio_ingreso = models.PositiveSmallIntegerField("año de ingreso")
 
@@ -67,4 +67,4 @@ class PerfilEstudiante(models.Model):
         verbose_name_plural = "perfiles de estudiante"
 
     def __str__(self):
-        return f"{self.usuario.email} — {self.legajo}"
+        return f"{self.usuario.email} — {self.nro_registro}"

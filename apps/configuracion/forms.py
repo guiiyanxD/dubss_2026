@@ -4,12 +4,13 @@ from .models import FormularioSocioeconomico
 
 
 class FormularioSocioeconomicoForm(forms.Form):
+    
     situacion_laboral = forms.ChoiceField(
         label="Situación laboral",
         choices=FormularioSocioeconomico.SituacionLaboral.choices,
     )
     ingreso_mensual_familiar = forms.DecimalField(
-        label="Ingreso mensual familiar (ARS)",
+        label="Ingreso mensual familiar (Bs.)",
         min_value=0,
         max_digits=12,
         decimal_places=2,
@@ -101,7 +102,11 @@ class FormularioSocioeconomicoForm(forms.Form):
 
 class IntegranteFamiliarForm(forms.Form):
     nombre_completo = forms.CharField(label="Nombre completo", max_length=200, required=False)
-    parentesco = forms.CharField(label="Parentesco", max_length=50, required=False)
+    parentesco = forms.ChoiceField(
+        label="Parentesco",
+        choices=FormularioSocioeconomico.ParentescoIntegrante.choices,
+        required=True
+    )
     edad = forms.IntegerField(label="Edad", min_value=0, max_value=120, required=False)
     ocupacion = forms.CharField(label="Ocupación", max_length=100, required=False)
     observacion = forms.CharField(label="Observación", max_length=200, required=False)

@@ -53,6 +53,7 @@ def crear_usuarios_internos(apps, schema_editor):
                 "last_name": datos["last_name"],
                 "password": PASSWORD_DIRECTOR,
                 "is_active": True,
+                "is_staff": True,
             },
         )
         usuario.groups.add(grupo_director)
@@ -65,6 +66,7 @@ def crear_usuarios_internos(apps, schema_editor):
                 "last_name": datos["last_name"],
                 "password": PASSWORD_OPERADOR,
                 "is_active": True,
+                "is_staff": True,
             },
         )
         usuario.groups.add(grupo_operador)

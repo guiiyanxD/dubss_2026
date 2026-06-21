@@ -36,12 +36,24 @@ class FormularioSocioeconomico(models.Model):
         ANTICRETICO = "ANTICRETICO", "Anticrético"
         ALQUILER = "ALQUILER", "Alquiler"
 
+    class ParentescoIntegrante(models.TextChoices):
+        PADRE = "PADRE", "Padre"
+        MADRE = "MADRE", "Madre"
+        HERMANO = "HERMANO", "Hermano"
+        HERMANA = "HERMANA", "Hermana"
+        HIJO = "HIJO", "Hijo/a"
+        ABUELO = "ABUELO", "Abuelo/a"
+        TIO = "TIO", "Tío/a"
+        PRIMO = "PRIMO", "Primo/a"
+        OTRO = "OTRO", "Otro"
+
     usuario = models.OneToOneField(
         "acceso.Usuario",
         on_delete=models.CASCADE,
         related_name="formulario_socioeconomico",
         verbose_name="estudiante",
     )
+    
     situacion_laboral = models.CharField(
         "situación laboral",
         max_length=20,
@@ -144,7 +156,11 @@ class IntegranteFamiliar(models.Model):
         verbose_name="formulario socioeconómico",
     )
     nombre_completo = models.CharField("nombre completo", max_length=200)
-    parentesco = models.CharField("parentesco", max_length=50)
+    parentesco = models.CharField(
+        "parentesco",
+        max_length=20,
+        choices=FormularioSocioeconomico.ParentescoIntegrante.choices,
+    )
     edad = models.PositiveSmallIntegerField("edad")
     ocupacion = models.CharField("ocupación", max_length=100, blank=True)
     observacion = models.CharField("observación", max_length=200, blank=True)

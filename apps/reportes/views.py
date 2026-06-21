@@ -79,17 +79,19 @@ def ranking_view(request, convocatoria_pk):
         .order_by("-puntaje_socioeconomico", "fecha_envio")
     )
 
-    form = GenerarRankingForm(request.POST or None)
+    form = GenerarRankingForm(request.POST or None, convocatoria=convocatoria)
 
     if request.method == "POST" and form.is_valid():
         postulaciones_resultado = services.generar_ranking(
             convocatoria=convocatoria,
+            beca=form.cleaned_data["beca"],
             cupo=form.cleaned_data["cupo"],
             cupo_espera=form.cleaned_data["cupo_espera"],
         )
         messages.success(
             request,
-            f"Ranking generado: {len(postulaciones_resultado)} postulaciones clasificadas.",
+            f"Ranking de '{form.cleaned_data['beca']}' generado: "
+            f"{len(postulaciones_resultado)} postulaciones clasificadas.",
         )
         return redirect("reportes:ranking", convocatoria_pk=convocatoria_pk)
 

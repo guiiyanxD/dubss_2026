@@ -19,7 +19,7 @@ CARRERAS = [
     "Licenciatura en Matemática",
 ]
 
-ANIOS_INGRESO = [2020, 2021, 2022, 2023, 2024]
+ANIOS_INGRESO = list(range(2012, 2027))
 
 PASSWORD = make_password("estudiante123")
 
@@ -57,12 +57,16 @@ def crear_estudiantes(apps, schema_editor):
     for i, usuario in enumerate(creados):
         idx = i  # ya es 0-based respecto al lote creado
         num_global = idx + 4
+        anio_ingreso = ANIOS_INGRESO[idx % len(ANIOS_INGRESO)]
+        # nro_registro: 9 dígitos, los primeros 4 son el año de ingreso (dato público);
+        # los 5 restantes son un secuencial sin patrón conocido fuera de la universidad.
+        nro_registro = f"{anio_ingreso}{num_global:05d}"
         perfiles.append(
             PerfilEstudiante(
                 usuario=usuario,
-                legajo=f"EST-{num_global:04d}",
+                nro_registro=nro_registro,
                 carrera=CARRERAS[idx % len(CARRERAS)],
-                anio_ingreso=ANIOS_INGRESO[idx % len(ANIOS_INGRESO)],
+                anio_ingreso=anio_ingreso,
             )
         )
 

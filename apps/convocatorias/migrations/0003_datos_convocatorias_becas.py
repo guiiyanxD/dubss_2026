@@ -3,6 +3,29 @@ from datetime import datetime
 from django.db import migrations
 from django.utils import timezone
 
+TIPOS_DOCUMENTO = [
+    {
+        "nombre": "DNI (Documento Nacional de Identidad)",
+        "descripcion": "Copia del documento de identidad vigente.",
+    },
+    {
+        "nombre": "Certificado de Alumno Regular",
+        "descripcion": "Emitido por la facultad, con antigüedad no mayor a 30 días.",
+    },
+    {
+        "nombre": "Recibo de Sueldo o Certificado de Ingresos",
+        "descripcion": "Del sostén económico del grupo familiar.",
+    },
+    {
+        "nombre": "Certificado de Domicilio",
+        "descripcion": "Constancia de domicilio actual del postulante.",
+    },
+    {
+        "nombre": "Constancia de CUIL/CUIT del Grupo Familiar",
+        "descripcion": "De todos los integrantes mayores de 18 años.",
+    },
+]
+
 CONVOCATORIAS = [
     {
         "nombre": "Convocatoria de Becas 2026 — Primer Cuatrimestre",
@@ -28,6 +51,14 @@ CONVOCATORIAS = [
 def crear_convocatorias_becas(apps, schema_editor):
     Convocatoria = apps.get_model("convocatorias", "Convocatoria")
     Beca = apps.get_model("convocatorias", "Beca")
+    TipoDocumento = apps.get_model("convocatorias", "TipoDocumento")
+
+    tipos_documento = [
+        TipoDocumento.objects.get_or_create(
+            nombre=datos["nombre"], defaults={"descripcion": datos["descripcion"]}
+        )[0]
+        for datos in TIPOS_DOCUMENTO
+    ]
 
     for datos in CONVOCATORIAS:
         fecha_apertura = timezone.make_aware(datetime(*datos["apertura"]))
@@ -46,16 +77,21 @@ def crear_convocatorias_becas(apps, schema_editor):
             beca, _ = Beca.objects.get_or_create(nombre=nombre_beca)
             convocatoria.becas.add(beca)
 
+        convocatoria.documentos_requeridos.add(*tipos_documento)
+
 
 def eliminar_convocatorias_becas(apps, schema_editor):
     Convocatoria = apps.get_model("convocatorias", "Convocatoria")
     Beca = apps.get_model("convocatorias", "Beca")
+    TipoDocumento = apps.get_model("convocatorias", "TipoDocumento")
 
     nombres_convocatorias = [c["nombre"] for c in CONVOCATORIAS]
     nombres_becas = [nombre for c in CONVOCATORIAS for nombre in c["becas"]]
+    nombres_documentos = [d["nombre"] for d in TIPOS_DOCUMENTO]
 
     Convocatoria.objects.filter(nombre__in=nombres_convocatorias).delete()
     Beca.objects.filter(nombre__in=nombres_becas).delete()
+    TipoDocumento.objects.filter(nombre__in=nombres_documentos).delete()
 
 
 class Migration(migrations.Migration):

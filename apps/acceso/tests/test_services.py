@@ -24,7 +24,7 @@ def _datos_validos(**overrides):
         "password2": "Segura123!",
         "first_name": "Ana",
         "last_name": "García",
-        "legajo": "L001",
+        "nro_registro": "216002400",
         "carrera": "Ingeniería Informática",
         "anio_ingreso": 2022,
     }
@@ -38,7 +38,7 @@ def test_autorregistrar_estudiante_exitoso(db):
     assert isinstance(usuario, Usuario)
     assert usuario.email == "estudiante@test.com"
     assert usuario.groups.filter(name="Estudiante").exists()
-    assert PerfilEstudiante.objects.filter(usuario=usuario, legajo="L001").exists()
+    assert PerfilEstudiante.objects.filter(usuario=usuario, nro_registro="216002400").exists()
 
 
 def test_autorregistrar_estudiante_contrasenas_distintas(db):
@@ -49,10 +49,10 @@ def test_autorregistrar_estudiante_contrasenas_distintas(db):
 def test_autorregistrar_estudiante_email_duplicado(db):
     autorregistrar_estudiante(**_datos_validos())
     with pytest.raises(EmailYaRegistradoError):
-        autorregistrar_estudiante(**_datos_validos(legajo="L002"))
+        autorregistrar_estudiante(**_datos_validos(nro_registro="216002401"))
 
 
-def test_autorregistrar_estudiante_legajo_duplicado(db):
+def test_autorregistrar_estudiante_nro_registro_duplicado(db):
     autorregistrar_estudiante(**_datos_validos())
     with pytest.raises(LegajoYaRegistradoError):
         autorregistrar_estudiante(**_datos_validos(email="otro@test.com"))

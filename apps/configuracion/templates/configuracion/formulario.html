@@ -12,12 +12,14 @@
             </div>
             <div class="card-body">
                 {% if formulario and formulario.completado %}
-                <div class="alert alert-success">
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle-fill"></i>
                     Formulario completado. Podés actualizarlo en cualquier momento.
                     Última actualización: {{ formulario.fecha_actualizacion|date:"d/m/Y H:i" }}
                 </div>
                 {% else %}
                 <div class="alert alert-warning">
+                    <i class="bi bi-exclamation-triangle-fill"></i>
                     Debés completar este formulario antes de poder postularte a una beca.
                 </div>
                 {% endif %}
@@ -27,6 +29,7 @@
 
                     <h5 class="mt-4">Grupo familiar</h5>
                     <p class="text-muted small">
+                        <i class="bi bi-info-circle-fill"></i>
                         Agregá hasta 10 integrantes de tu grupo familiar (no incluyas tus
                         propios datos).
                     </p>

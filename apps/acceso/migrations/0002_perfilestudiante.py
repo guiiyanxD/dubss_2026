@@ -20,7 +20,10 @@ class Migration(migrations.Migration):
                         auto_created=True, primary_key=True, serialize=False, verbose_name="ID"
                     ),
                 ),
-                ("legajo", models.CharField(max_length=20, unique=True, verbose_name="legajo")),
+                (
+                    "nro_registro",
+                    models.CharField(max_length=20, unique=True, verbose_name="Nro. Registro"),
+                ),
                 ("carrera", models.CharField(max_length=150, verbose_name="carrera")),
                 ("anio_ingreso", models.PositiveSmallIntegerField(verbose_name="año de ingreso")),
                 (

@@ -12,3 +12,7 @@ class ConvocatoriaYaCerradaError(Exception):
 
 class NombreDuplicadoError(Exception):
     """Ya existe un registro con ese nombre."""
+
+
+class PonderacionInvalidaError(Exception):
+    """La suma de los pesos de ponderación de la beca no es 100."""

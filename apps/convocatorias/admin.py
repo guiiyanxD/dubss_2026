@@ -5,7 +5,15 @@ from .models import Beca, Convocatoria, TipoDocumento
 
 @admin.register(Beca)
 class BecaAdmin(admin.ModelAdmin):
-    list_display = ["nombre", "activa"]
+    list_display = [
+        "nombre",
+        "activa",
+        "peso_ingreso",
+        "peso_desempleo",
+        "peso_familiares",
+        "peso_no_propietario",
+        "peso_sin_beca_previa",
+    ]
     list_filter = ["activa"]
     search_fields = ["nombre"]
 

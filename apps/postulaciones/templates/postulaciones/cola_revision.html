@@ -5,12 +5,52 @@
 {% block content %}
 <h2 class="mb-4">Cola de Revisión</h2>
 
-{% if postulaciones %}
+<form method="get" class="card card-body shadow-sm mb-3 py-2">
+    <div class="row g-2 align-items-end">
+        <div class="col-md-3">
+            <label class="form-label form-label-sm mb-1">Buscar</label>
+            <input type="text" name="q" value="{{ busqueda }}" class="form-control form-control-sm"
+                   placeholder="Nombre o nro. de registro…">
+        </div>
+        <div class="col-md-2">
+            <label class="form-label form-label-sm mb-1">Estado</label>
+            <select name="estado" class="form-select form-select-sm">
+                <option value="">Todos los estados</option>
+                <option value="ENVIADA" {% if estado == "ENVIADA" %}selected{% endif %}>Enviada</option>
+                <option value="EN_REVISION" {% if estado == "EN_REVISION" %}selected{% endif %}>En Revisión</option>
+            </select>
+        </div>
+        <div class="col-md-3">
+            <label class="form-label form-label-sm mb-1">Convocatoria</label>
+            <select name="convocatoria" class="form-select form-select-sm">
+                <option value="">Todas las convocatorias</option>
+                {% for c in convocatorias_disponibles %}
+                <option value="{{ c.pk }}" {% if convocatoria_id == c.pk|stringformat:"s" %}selected{% endif %}>{{ c.nombre }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-2">
+            <label class="form-label form-label-sm mb-1">Beca</label>
+            <select name="beca" class="form-select form-select-sm">
+                <option value="">Todas las becas</option>
+                {% for b in becas_disponibles %}
+                <option value="{{ b.pk }}" {% if beca_id == b.pk|stringformat:"s" %}selected{% endif %}>{{ b.nombre }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-2 d-flex gap-1">
+            <button type="submit" class="btn btn-sm btn-primary flex-fill">Filtrar</button>
+            <a href="{% url 'postulaciones:cola-revision' %}" class="btn btn-sm btn-outline-secondary">✕</a>
+        </div>
+    </div>
+</form>
+
+{% if page_obj.object_list %}
 <div class="table-responsive">
     <table class="table table-hover align-middle">
         <thead class="table-dark">
             <tr>
-                <th>#</th>
+                <th>Nro. Registro</th>
                 <th>Estudiante</th>
                 <th>Convocatoria</th>
                 <th>Beca</th>
@@ -20,9 +60,9 @@
             </tr>
         </thead>
         <tbody>
-            {% for p in postulaciones %}
+            {% for p in page_obj %}
             <tr>
-                <td>{{ p.pk }}</td>
+                <td>{{ p.estudiante.perfil_estudiante.nro_registro|default:"—" }}</td>
                 <td>{{ p.estudiante.get_full_name }} <small class="text-muted">({{ p.estudiante.email }})</small></td>
                 <td>{{ p.convocatoria.nombre }}</td>
                 <td>{{ p.beca.nombre }}</td>
@@ -42,6 +82,7 @@
         </tbody>
     </table>
 </div>
+{% include "partials/_pagination.html" %}
 {% else %}
 <div class="text-center py-5 text-muted">
     <p class="fs-5">No hay postulaciones pendientes de revisión.</p>

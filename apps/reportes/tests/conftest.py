@@ -62,7 +62,7 @@ def crear_estudiante(db):
         if carrera is not None or anio_ingreso is not None:
             PerfilEstudiante.objects.create(
                 usuario=usuario,
-                legajo=f"LEG-{n}",
+                nro_registro=f"{anio_ingreso or 2020}{n:05d}",
                 carrera=carrera or "Ingeniería de Sistemas",
                 anio_ingreso=anio_ingreso or 2020,
             )

@@ -9,6 +9,7 @@ from .exceptions import (
     ConvocatoriaYaCerradaError,
     FechaInvalidaError,
     NombreDuplicadoError,
+    PonderacionInvalidaError,
 )
 from .forms import (
     BecaForm,
@@ -17,6 +18,14 @@ from .forms import (
     convocatoria_a_form_inicial,
 )
 from .models import Beca, Convocatoria, TipoDocumento
+
+_CAMPOS_PESO = [
+    "peso_ingreso",
+    "peso_desempleo",
+    "peso_familiares",
+    "peso_no_propietario",
+    "peso_sin_beca_previa",
+]
 
 
 def _es_director_o_operador(user):
@@ -60,14 +69,18 @@ def lista_convocatorias_view(request):
     params.pop("page", None)
     query_string = f"?{params.urlencode()}&" if params else "?"
 
-    return render(request, "convocatorias/lista.html", {
-        "page_obj": page_obj,
-        "page_range": page_range,
-        "query_string": query_string,
-        "es_estudiante": es_estudiante,
-        "estado": estado,
-        "busqueda": busqueda,
-    })
+    return render(
+        request,
+        "convocatorias/lista.html",
+        {
+            "page_obj": page_obj,
+            "page_range": page_range,
+            "query_string": query_string,
+            "es_estudiante": es_estudiante,
+            "estado": estado,
+            "busqueda": busqueda,
+        },
+    )
 
 
 @director_required
@@ -125,11 +138,15 @@ def detalle_convocatoria_view(request, pk):
     convocatoria = get_object_or_404(
         Convocatoria.objects.prefetch_related("becas", "documentos_requeridos"), pk=pk
     )
-    return render(request, "convocatorias/detalle.html", {
-        "convocatoria": convocatoria,
-        "es_director": _es_director(request.user),
-        "es_estudiante": not _es_director_o_operador(request.user),
-    })
+    return render(
+        request,
+        "convocatorias/detalle.html",
+        {
+            "convocatoria": convocatoria,
+            "es_director": _es_director(request.user),
+            "es_estudiante": not _es_director_o_operador(request.user),
+        },
+    )
 
 
 @director_required
@@ -182,13 +199,17 @@ def lista_becas_view(request):
     params.pop("page", None)
     query_string = f"?{params.urlencode()}&" if params else "?"
 
-    return render(request, "convocatorias/becas/lista.html", {
-        "page_obj": page_obj,
-        "page_range": page_range,
-        "query_string": query_string,
-        "activa": activa,
-        "busqueda": busqueda,
-    })
+    return render(
+        request,
+        "convocatorias/becas/lista.html",
+        {
+            "page_obj": page_obj,
+            "page_range": page_range,
+            "query_string": query_string,
+            "activa": activa,
+            "busqueda": busqueda,
+        },
+    )
 
 
 @director_required
@@ -199,18 +220,26 @@ def crear_beca_view(request):
             services.crear_beca(
                 nombre=form.cleaned_data["nombre"],
                 descripcion=form.cleaned_data.get("descripcion", ""),
+                **{campo: form.cleaned_data[campo] for campo in _CAMPOS_PESO},
             )
             messages.success(request, "Beca creada.")
             return redirect("convocatorias:becas-lista")
         except NombreDuplicadoError as e:
             form.add_error("nombre", str(e))
+        except PonderacionInvalidaError as e:
+            form.add_error(None, str(e))
     return render(request, "convocatorias/becas/form.html", {"form": form, "titulo": "Nueva Beca"})
 
 
 @director_required
 def editar_beca_view(request, pk):
     beca = get_object_or_404(Beca, pk=pk)
-    initial = {"nombre": beca.nombre, "descripcion": beca.descripcion, "activa": beca.activa}
+    initial = {
+        "nombre": beca.nombre,
+        "descripcion": beca.descripcion,
+        "activa": beca.activa,
+        **{campo: getattr(beca, campo) for campo in _CAMPOS_PESO},
+    }
     form = BecaForm(request.POST or None, initial=initial)
     if request.method == "POST" and form.is_valid():
         try:
@@ -219,11 +248,14 @@ def editar_beca_view(request, pk):
                 nombre=form.cleaned_data["nombre"],
                 descripcion=form.cleaned_data.get("descripcion", ""),
                 activa=form.cleaned_data["activa"],
+                **{campo: form.cleaned_data[campo] for campo in _CAMPOS_PESO},
             )
             messages.success(request, "Beca actualizada.")
             return redirect("convocatorias:becas-lista")
         except NombreDuplicadoError as e:
             form.add_error("nombre", str(e))
+        except PonderacionInvalidaError as e:
+            form.add_error(None, str(e))
     return render(
         request,
         "convocatorias/becas/form.html",
@@ -257,13 +289,17 @@ def lista_tipos_documento_view(request):
     params.pop("page", None)
     query_string = f"?{params.urlencode()}&" if params else "?"
 
-    return render(request, "convocatorias/documentos/lista.html", {
-        "page_obj": page_obj,
-        "page_range": page_range,
-        "query_string": query_string,
-        "activo": activo,
-        "busqueda": busqueda,
-    })
+    return render(
+        request,
+        "convocatorias/documentos/lista.html",
+        {
+            "page_obj": page_obj,
+            "page_range": page_range,
+            "query_string": query_string,
+            "activo": activo,
+            "busqueda": busqueda,
+        },
+    )
 
 
 @director_required
