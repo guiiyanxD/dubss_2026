@@ -1,0 +1,13 @@
+[run]
+source =
+    apps
+    config
+relative_files = True
+omit =
+    */migrations/*
+    */tests/*
+
+[report]
+omit =
+    */migrations/*
+    */tests/*

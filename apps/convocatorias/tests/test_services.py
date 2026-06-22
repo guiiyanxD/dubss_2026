@@ -18,6 +18,7 @@ from apps.convocatorias.services import (
     crear_tipo_documento,
     editar_beca,
     editar_convocatoria,
+    listar_convocatorias,
     publicar_convocatoria,
 )
 
@@ -128,6 +129,28 @@ def test_cerrar_convocatorias_vencidas(db, director):
     assert count == 1
     conv.refresh_from_db()
     assert conv.estado == Convocatoria.Estado.CERRADA
+
+
+def test_listar_convocatorias_para_estudiante_solo_publicadas(db, director):
+    publicada = _crear(director, nombre="Publicada UnicaFiltroXYZ")
+    publicar_convocatoria(convocatoria=publicada)
+    _crear(director, nombre="Borrador UnicaFiltroXYZ")
+
+    resultado = list(listar_convocatorias(para_estudiante=True, busqueda="UnicaFiltroXYZ"))
+
+    assert resultado == [publicada]
+
+
+def test_listar_convocatorias_staff_filtra_por_estado_y_busqueda(db, director):
+    borrador_buscado = _crear(director, nombre="Borrador Transporte")
+    publicada = _crear(director, nombre="Publicada Transporte")
+    publicar_convocatoria(convocatoria=publicada)
+
+    resultado = list(
+        listar_convocatorias(estado=Convocatoria.Estado.BORRADOR, busqueda="transporte")
+    )
+
+    assert resultado == [borrador_buscado]
 
 
 # ---------------------------------------------------------------------------

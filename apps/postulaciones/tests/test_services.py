@@ -9,6 +9,7 @@ from apps.postulaciones import services
 from apps.postulaciones.exceptions import (
     ConstanciaNoDisponibleError,
     ConvocatoriaNoVigenteError,
+    BecaNoDisponibleError,
     DocumentoNoAprobadoError,
     DocumentoNoPendienteError,
     FormularioIncompletoError,
@@ -116,6 +117,27 @@ def test_iniciar_postulacion_convocatoria_cerrada(estudiante, beca, formulario, 
 
 
 @pytest.mark.django_db
+def test_iniciar_postulacion_beca_no_pertenece_a_convocatoria(
+    estudiante, convocatoria, formulario
+):
+    otra_beca = Beca.objects.create(nombre="Beca externa", activa=True)
+
+    with pytest.raises(BecaNoDisponibleError):
+        services.iniciar_postulacion(
+            estudiante=estudiante, convocatoria=convocatoria, beca=otra_beca
+        )
+
+
+@pytest.mark.django_db
+def test_iniciar_postulacion_formulario_incompleto(estudiante, convocatoria, beca, formulario):
+    formulario.completado = False
+    formulario.save(update_fields=["completado"])
+
+    with pytest.raises(FormularioIncompletoError):
+        services.iniciar_postulacion(estudiante=estudiante, convocatoria=convocatoria, beca=beca)
+
+
+@pytest.mark.django_db
 def test_enviar_postulacion_ok(postulacion_borrador, convocatoria):
     tipo = TipoDocumento.objects.create(nombre="DNI", activo=True)
     convocatoria.documentos_requeridos.add(tipo)
@@ -217,6 +239,34 @@ def test_validar_documento_rechaza_y_cierra(postulacion_borrador):
     services.validar_documento(documento=doc, aprobar=False)
     postulacion_borrador.refresh_from_db()
     assert postulacion_borrador.estado == Postulacion.Estado.RECHAZADA_DOCUMENTACION
+
+
+@pytest.mark.django_db
+def test_validar_documento_aprueba_pero_quedan_pendientes(postulacion_borrador):
+    postulacion_borrador.estado = Postulacion.Estado.EN_REVISION
+    postulacion_borrador.save()
+    tipo_1 = TipoDocumento.objects.create(nombre="DNI", activo=True)
+    tipo_2 = TipoDocumento.objects.create(nombre="Certificado", activo=True)
+    doc_aprobado = DocumentoPostulacion.objects.create(
+        postulacion=postulacion_borrador, tipo_documento=tipo_1
+    )
+    DocumentoPostulacion.objects.create(postulacion=postulacion_borrador, tipo_documento=tipo_2)
+
+    services.validar_documento(documento=doc_aprobado, aprobar=True)
+
+    postulacion_borrador.refresh_from_db()
+    doc_aprobado.refresh_from_db()
+    assert doc_aprobado.validado is True
+    assert postulacion_borrador.estado == Postulacion.Estado.EN_REVISION
+
+
+@pytest.mark.django_db
+def test_validar_documento_estado_postulacion_invalido(postulacion_borrador):
+    tipo = TipoDocumento.objects.create(nombre="DNI", activo=True)
+    doc = DocumentoPostulacion.objects.create(postulacion=postulacion_borrador, tipo_documento=tipo)
+
+    with pytest.raises(TransicionEstadoInvalidaError):
+        services.validar_documento(documento=doc, aprobar=True)
 
 
 @pytest.mark.django_db

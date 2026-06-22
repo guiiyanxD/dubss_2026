@@ -11,7 +11,16 @@ from .models import PerfilEstudiante, Usuario
 
 @transaction.atomic
 def autorregistrar_estudiante(
-    *, email, password1, password2, first_name, last_name, legajo, carrera, anio_ingreso
+    *,
+    email,
+    password1,
+    password2,
+    first_name,
+    last_name,
+    carrera,
+    anio_ingreso,
+    nro_registro=None,
+    legajo=None,
 ):
     """Registra un nuevo estudiante con su perfil académico básico.
 
@@ -33,14 +42,17 @@ def autorregistrar_estudiante(
         EmailYaRegistradoError: Si el email ya existe en el sistema.
         LegajoYaRegistradoError: Si el legajo ya está registrado.
     """
+    if nro_registro is None:
+        nro_registro = legajo
+
     if password1 != password2:
         raise ContrasenasNoCoincidenceError("Las contraseñas no coinciden.")
 
     if Usuario.objects.filter(email=email).exists():
         raise EmailYaRegistradoError(f"El email {email} ya está registrado.")
 
-    if PerfilEstudiante.objects.filter(legajo=legajo).exists():
-        raise LegajoYaRegistradoError(f"El legajo {legajo} ya está registrado.")
+    if PerfilEstudiante.objects.filter(nro_registro=nro_registro).exists():
+        raise LegajoYaRegistradoError(f"El nro. registro {nro_registro} ya está registrado.")
 
     usuario = Usuario.objects.create_user(
         email=email,
@@ -51,7 +63,7 @@ def autorregistrar_estudiante(
 
     PerfilEstudiante.objects.create(
         usuario=usuario,
-        legajo=legajo,
+        nro_registro=nro_registro,
         carrera=carrera,
         anio_ingreso=anio_ingreso,
     )

@@ -42,5 +42,6 @@ gunicorn==23.*
 
 # Development
 pytest-django==4.9.*
+coverage==7.14.*
 ruff==0.7.*
 django-debug-toolbar==4.4.*

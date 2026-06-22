@@ -48,6 +48,7 @@ ENV/
 .coverage
 coverage.xml
 htmlcov/
+reports/
 .pytest_cache/
 .tox/
 

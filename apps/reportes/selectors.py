@@ -472,7 +472,7 @@ def buscar_postulantes(
             {
                 "nombre": p.estudiante.get_full_name() or p.estudiante.email,
                 "email": p.estudiante.email,
-                "legajo": getattr(perfil, "legajo", ""),
+                "legajo": getattr(perfil, "nro_registro", ""),
                 "carrera": getattr(perfil, "carrera", ""),
                 "anio_ingreso": getattr(perfil, "anio_ingreso", None),
                 "cantidad_familiares": p.formulario.cantidad_familiares,

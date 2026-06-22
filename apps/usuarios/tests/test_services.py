@@ -3,7 +3,7 @@ from django.contrib.auth.models import Group
 
 from apps.acceso.models import Usuario
 from apps.usuarios.exceptions import EmailYaRegistradoError, RolInvalidoError
-from apps.usuarios.services import asignar_rol, registrar_usuario
+from apps.usuarios.services import asignar_rol, listar_usuarios, registrar_usuario
 
 
 @pytest.fixture(autouse=True)
@@ -40,3 +40,43 @@ def test_asignar_rol_reemplaza_grupo(db):
     asignar_rol(usuario=usuario, rol="Director")
     assert usuario.groups.filter(name="Director").exists()
     assert not usuario.groups.filter(name="Operador").exists()
+
+
+def test_listar_usuarios_filtra_por_excluir_rol_estado_y_busqueda(db):
+    director = registrar_usuario(
+        email="director@test.com", first_name="Diana", last_name="Mendoza", rol="Director"
+    )
+    operador = registrar_usuario(
+        email="operador@test.com", first_name="Oscar", last_name="Suarez", rol="Operador"
+    )
+    inactivo = registrar_usuario(
+        email="baja@test.com", first_name="Bruno", last_name="Mendoza", rol="Director"
+    )
+    inactivo.is_active = False
+    inactivo.save(update_fields=["is_active"])
+
+    resultado = list(
+        listar_usuarios(
+            excluir_pk=operador.pk,
+            rol="Director",
+            estado="activo",
+            busqueda="diana",
+        )
+    )
+
+    assert resultado == [director]
+
+
+def test_listar_usuarios_filtra_inactivos(db):
+    registrar_usuario(
+        email="activo@test.com", first_name="Ana", last_name="Activa", rol="Operador"
+    )
+    inactivo = registrar_usuario(
+        email="inactivo@test.com", first_name="Ina", last_name="Activa", rol="Operador"
+    )
+    inactivo.is_active = False
+    inactivo.save(update_fields=["is_active"])
+
+    resultado = list(listar_usuarios(estado="inactivo"))
+
+    assert resultado == [inactivo]
