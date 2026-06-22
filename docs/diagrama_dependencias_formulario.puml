@@ -1,0 +1,129 @@
+@startuml diagrama_dependencias_formulario
+title FormularioSocioeconomico — Dependencias de código (apps.configuracion)
+
+skinparam wrapWidth 250
+skinparam package {
+  BackgroundColor<<focus>> #FFF6D5
+  BorderColor<<focus>> #C9A227
+}
+skinparam class {
+  BackgroundColor<<module>> #EAF4FF
+  BorderColor<<module>> #2a3964
+  BackgroundColor #FFFFFF
+  BorderColor #880000
+}
+hide circle
+hide empty members
+
+' =====================================================================
+package "apps.acceso (capa base)" {
+  class Usuario
+}
+
+' =====================================================================
+package "apps.configuracion" <<focus>> {
+  class FormularioSocioeconomico {
+    + situacion_laboral, situacion_habitacional
+    + ingreso_mensual_familiar, cantidad_familiares
+    + tiene_beca_previa, tiene_hijos, tiene_discapacidad
+    + dependencia_economica, tipo_ocupacion_sosten
+    + tipo_tenencia_vivienda, completado
+  }
+  class IntegranteFamiliar
+
+  class "forms.py" as ConfigForms <<module>> {
+    FormularioSocioeconomicoForm
+    IntegranteFamiliarForm
+  }
+  class "services.py" as ConfigServices <<module>> {
+    guardar_formulario()
+    guardar_integrantes_familiares()
+  }
+  class "views.py" as ConfigViews <<module>> {
+    formulario_view()
+    --
+    CU16 — Completar Formulario
+  }
+  class "admin.py" as ConfigAdmin <<module>> {
+    FormularioSocioeconomicoAdmin
+    IntegranteFamiliarInline
+  }
+}
+
+' =====================================================================
+package "apps.postulaciones" {
+  class Postulacion
+
+  class "services.py" as PostulacionesServices <<module>> {
+    iniciar_postulacion()
+    --
+    CU17 — valida formulario.completado
+    --
+    generar_constancia_pdf()
+    --
+    lee formulario + integrantes_familiares
+  }
+}
+
+' =====================================================================
+package "apps.reportes" {
+  class "services.py" as ReportesServices <<module>> {
+    procesar_formularios_socioeconomicos()
+    --
+    CU23 — lee 5 campos del formulario
+    + Beca.peso_* (CU15) para el puntaje
+  }
+  class "selectors.py" as ReportesSelectors <<module>> {
+    distribucion_ingreso_familiar()
+    distribucion_choices()
+    indicadores_generales()
+    buscar_postulantes()
+    --
+    KPIs del dashboard + reportes ad-hoc
+  }
+  class "llm_tools.py" as ReportesLLMTools <<module>> {
+    usa los choices del formulario
+    como enum del catálogo de tools
+    --
+    chat IA
+  }
+}
+
+' =====================================================================
+' Relaciones — flecha sólida = FK/O2O real del modelo;
+' flecha punteada = dependencia de código (lee/escribe vía servicio o selector)
+FormularioSocioeconomico --> Usuario : usuario (O2O, CASCADE)
+IntegranteFamiliar --> FormularioSocioeconomico : formulario (FK, CASCADE)
+
+ConfigForms ..> FormularioSocioeconomico
+ConfigServices ..> FormularioSocioeconomico : crea/actualiza\n(update_or_create)
+ConfigServices ..> IntegranteFamiliar : reemplaza\n(delete + bulk_create)
+ConfigViews ..> ConfigForms
+ConfigViews ..> ConfigServices
+ConfigAdmin ..> FormularioSocioeconomico
+ConfigAdmin ..> IntegranteFamiliar
+
+Postulacion --> FormularioSocioeconomico : formulario (FK, PROTECT)
+PostulacionesServices ..> FormularioSocioeconomico : lee\n(completado, datos para PDF)
+
+ReportesServices ..> FormularioSocioeconomico : lee (vía Postulacion.formulario)
+ReportesSelectors ..> FormularioSocioeconomico : lee (vía Postulacion.formulario)
+ReportesLLMTools ..> FormularioSocioeconomico : importa\nlas clases TextChoices
+
+note bottom of FormularioSocioeconomico
+  Único por estudiante (O2O) y reutilizable entre
+  postulaciones — por eso todo lo que está "aguas
+  abajo" (postulaciones, reportes) accede a él
+  indirectamente vía Postulacion.formulario, nunca
+  directo por Usuario.
+end note
+
+legend right
+  |= Notación |= Significado |
+  | --> (sólida) | Relación real del modelo (FK / O2O) |
+  | ..> (punteada) | Dependencia de código (un service/selector/form que lee o escribe el modelo) |
+  | <<focus>> | App donde vive el modelo (CU16, P4 Config Socioeconómica) |
+  | <<module>> | Módulo Python (services.py, selectors.py, etc.), no una clase del ORM |
+endlegend
+
+@enduml

@@ -1,0 +1,74 @@
+@startuml seq_ponderacion_beca
+
+title Diagrama de Secuencia — Configurar Ponderación Socioeconómica de una Beca (CU28, nuevo)
+
+actor Director
+participant "convocatorias.views" as View
+participant "convocatorias.services" as Services
+participant "Beca\n(models.py)" as Model
+
+== Crear Beca con pesos personalizados ==
+
+Director -> View : POST nombre, descripcion,\npeso_ingreso=35, peso_desempleo=25,\npeso_familiares=20, peso_no_propietario=10,\npeso_sin_beca_previa=10
+activate View
+View -> Services : crear_beca(nombre, descripcion, **pesos)
+activate Services
+
+Services -> Model : Beca.objects.filter(nombre=...).exists()
+alt nombre ya existe
+  Services --> View : raise NombreDuplicadoError
+end
+
+Services -> Services : ¿se pasaron pesos?
+alt no se pasaron pesos
+  Services -> Services : _pesos_default()\n(40, 20, 20, 10, 10)
+end
+
+Services -> Model : beca = Beca(nombre=..., **pesos)
+Services -> Model : beca.full_clean()
+activate Model
+Model -> Model : clean(): suma = peso_ingreso + peso_desempleo\n+ peso_familiares + peso_no_propietario\n+ peso_sin_beca_previa
+alt suma != 100
+  Model --> Services : raise ValidationError
+  Services --> View : raise PonderacionInvalidaError
+end
+Model --> Services : válido
+deactivate Model
+
+Services -> Model : beca.save()
+Model --> Services : beca persistida
+Services --> View : beca
+deactivate Services
+View --> Director : 200 OK — Beca creada\n(pesos suman 100%)
+deactivate View
+
+== Editar Beca existente (ajustar ponderación) ==
+
+Director -> View : POST editar(beca_id,\nnuevos pesos parciales)
+activate View
+View -> Services : editar_beca(beca, nombre, descripcion,\nactiva, **pesos)
+activate Services
+Services -> Model : valida nombre único (excluyendo self)
+Services -> Services : conserva pesos anteriores\npara los no enviados
+Services -> Model : actualiza campos + full_clean()
+activate Model
+Model -> Model : clean(): valida suma == 100
+deactivate Model
+alt suma != 100
+  Services --> View : raise PonderacionInvalidaError
+end
+Services -> Model : beca.save()
+Services --> View : beca actualizada
+deactivate Services
+View --> Director : 200 OK
+deactivate View
+
+note over Model
+  Estos pesos son usados después por
+  apps.reportes.services.procesar_formularios_socioeconomicos()
+  (CU23) para calcular puntaje_socioeconomico de cada
+  Postulacion asociada a esta Beca — ver
+  seq_generar_ranking.puml.
+end note
+
+@enduml

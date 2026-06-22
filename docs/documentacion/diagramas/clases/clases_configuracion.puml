@@ -1,0 +1,135 @@
+@startuml clases_configuracion
+
+title Diagrama de Clases — apps.configuracion (P4: Configuración Socioeconómica)
+
+skinparam classAttributeIconSize 0
+skinparam class {
+  BackgroundColor #EFF6FF
+  BorderColor #1A5276
+}
+
+enum SituacionLaboral {
+  EMPLEADO
+  DESEMPLEADO
+  INDEPENDIENTE
+  NO_APLICA
+}
+
+enum SituacionHabitacional {
+  PROPIETARIO
+  ALQUILANDO
+  PRESTADA
+  OTRO
+}
+
+enum DependenciaEconomica {
+  INDEPENDIENTE
+  PADRE_MADRE
+  OTRO_FAMILIAR
+  PAREJA
+  AMBOS_PADRES
+}
+
+enum TipoOcupacionSosten {
+  ASALARIADO_FORMAL
+  ASALARIADO_INFORMAL
+  COMERCIANTE_MAYORISTA
+  RENTISTA
+  COMERCIANTE_MINORISTA
+  AGRICULTOR
+}
+
+enum TipoTenenciaVivienda {
+  HERENCIA
+  DE_LOS_PADRES
+  CEDIDA
+  ANTICRETICO
+  ALQUILER
+}
+
+enum ParentescoIntegrante {
+  PADRE
+  MADRE
+  HERMANO
+  HERMANA
+  HIJO
+  ABUELO
+  TIO
+  PRIMO
+  OTRO
+}
+
+class FormularioSocioeconomico {
+  .. Estado general ..
+  + completado: BooleanField = False
+  + fecha_actualizacion: DateTimeField <<auto_now>>
+  + observaciones: TextField
+  .. 1° Datos del postulante ..
+  + situacion_laboral: CharField(20) <<SituacionLaboral>>
+  + ingreso_mensual_familiar: DecimalField(12,2)
+  + numero_celular: CharField(20)
+  + telefono_referencia: CharField(20)
+  .. 2° Dependencia económica ..
+  + dependencia_economica: CharField(20) <<DependenciaEconomica>>
+  + tipo_ocupacion_sosten: CharField(25) <<TipoOcupacionSosten>>
+  .. 3° Grupo familiar ..
+  + cantidad_familiares: PositiveSmallIntegerField
+  + tiene_hijos: BooleanField = False
+  + cantidad_hijos: PositiveSmallIntegerField {nullable}
+  .. 4° Procedencia ..
+  + lugar_procedencia: CharField(150)
+  .. 5° Residencia ..
+  + residencia_lugar/provincia/zona_anillo/barrio/calle: CharField
+  .. 6° Tenencia de vivienda ..
+  + tipo_tenencia_vivienda: CharField(20) <<TipoTenenciaVivienda>>
+  .. 7° Infraestructura de la vivienda ..
+  + dormitorios/banos/comedores/salas/patios: PositiveSmallIntegerField = 0
+  + situacion_habitacional: CharField(20) <<SituacionHabitacional>>
+  .. 8° Otro beneficio ..
+  + tiene_beca_previa: BooleanField = False
+  + detalle_otro_beneficio: CharField(200)
+  .. 9° Discapacidad ..
+  + tiene_discapacidad: BooleanField = False
+  + detalle_discapacidad: CharField(200)
+  --
+  + __str__(): str
+}
+note right of FormularioSocioeconomico
+  ~30 campos en total (cuestionario socioeconómico
+  oficial, FORMULARIO DUBS 002). Único por estudiante
+  (OneToOneField) y reutilizable entre postulaciones
+  — regla de negocio explícita de CLAUDE.md.
+  apps/configuracion/models.py:4-146
+end note
+
+class IntegranteFamiliar {
+  + nombre_completo: CharField(200)
+  + parentesco: CharField(20) <<ParentescoIntegrante>>
+  + edad: PositiveSmallIntegerField
+  + ocupacion: CharField(100)
+  + observacion: CharField(200)
+  --
+  + __str__(): str
+}
+
+class "Usuario" as Usuario <<apps.acceso>> {
+  (definida en apps.acceso)
+}
+
+FormularioSocioeconomico "1" -- "0..1" Usuario : usuario >\n(related_name=\nformulario_socioeconomico)
+FormularioSocioeconomico "1" *-- "0..*" IntegranteFamiliar : integrantes_familiares\n(on_delete=CASCADE)
+
+FormularioSocioeconomico ..> SituacionLaboral
+FormularioSocioeconomico ..> SituacionHabitacional
+FormularioSocioeconomico ..> DependenciaEconomica
+FormularioSocioeconomico ..> TipoOcupacionSosten
+FormularioSocioeconomico ..> TipoTenenciaVivienda
+IntegranteFamiliar ..> ParentescoIntegrante
+
+note on link
+  Composición: un IntegranteFamiliar no
+  tiene sentido de negocio fuera de su
+  FormularioSocioeconomico (CASCADE).
+end note
+
+@enduml

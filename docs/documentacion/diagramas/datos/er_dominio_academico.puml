@@ -1,0 +1,167 @@
+@startuml er_dominio_academico
+
+title Modelo de Datos (Entidad-Relación) — Dominio Académico\nUsuario, Convocatorias, Becas, Formulario Socioeconómico, Postulación
+
+skinparam linetype orthogonal
+hide circle
+skinparam class {
+  BackgroundColor #FDEBD0
+  BorderColor #9C640C
+}
+
+entity "usuario" as usuario {
+  * id : bigint <<PK>>
+  --
+  * email : varchar(254) <<unique>>
+  password : varchar(128)
+  is_active : boolean
+  is_staff : boolean
+  is_superuser : boolean
+}
+
+entity "perfil_estudiante" as perfil {
+  * id : bigint <<PK>>
+  --
+  * usuario_id : bigint <<FK, unique>>
+  * nro_registro : varchar(20) <<unique>>
+  * carrera : varchar(150)
+  * anio_ingreso : smallint
+}
+
+entity "convocatoria" as convocatoria {
+  * id : bigint <<PK>>
+  --
+  * nombre : varchar(200)
+  descripcion : text
+  * fecha_apertura : timestamp
+  * fecha_cierre : timestamp
+  * estado : varchar(20)
+  creada_por_id : bigint <<FK, nullable>>
+}
+
+entity "beca" as beca {
+  * id : bigint <<PK>>
+  --
+  * nombre : varchar(150) <<unique>>
+  descripcion : text
+  * activa : boolean
+  * peso_ingreso : smallint
+  * peso_desempleo : smallint
+  * peso_familiares : smallint
+  * peso_no_propietario : smallint
+  * peso_sin_beca_previa : smallint
+  ..
+  CHECK lógico (clean()): suma de pesos = 100
+}
+
+entity "tipo_documento" as tipo_doc {
+  * id : bigint <<PK>>
+  --
+  * nombre : varchar(150) <<unique>>
+  descripcion : text
+  * activo : boolean
+}
+
+entity "convocatoria_becas" as conv_becas <<tabla intermedia M2M>> {
+  * convocatoria_id : bigint <<FK>>
+  * beca_id : bigint <<FK>>
+}
+
+entity "convocatoria_documentos_requeridos" as conv_docs <<tabla intermedia M2M>> {
+  * convocatoria_id : bigint <<FK>>
+  * tipodocumento_id : bigint <<FK>>
+}
+
+entity "formulario_socioeconomico" as formulario {
+  * id : bigint <<PK>>
+  --
+  * usuario_id : bigint <<FK, unique>>
+  * situacion_laboral : varchar(20)
+  * ingreso_mensual_familiar : numeric(12,2)
+  * cantidad_familiares : smallint
+  * situacion_habitacional : varchar(20)
+  * tiene_beca_previa : boolean
+  * completado : boolean
+  ... (+20 columnas adicionales: residencia,
+  vivienda, discapacidad, dependencia económica)
+}
+
+entity "integrante_familiar" as integrante {
+  * id : bigint <<PK>>
+  --
+  * formulario_id : bigint <<FK>>
+  * nombre_completo : varchar(200)
+  * parentesco : varchar(20)
+  * edad : smallint
+}
+
+entity "postulacion" as postulacion {
+  * id : bigint <<PK>>
+  --
+  * estudiante_id : bigint <<FK>>
+  * convocatoria_id : bigint <<FK>>
+  * beca_id : bigint <<FK>>
+  * formulario_id : bigint <<FK>>
+  * estado : varchar(30)
+  * fecha_creacion : timestamp
+  fecha_envio : timestamp <<nullable>>
+  puntaje_socioeconomico : numeric(5,2) <<nullable>>
+  numero_referencia : integer <<unique, nullable>>
+}
+
+entity "documento_postulacion" as documento {
+  * id : bigint <<PK>>
+  --
+  * postulacion_id : bigint <<FK>>
+  * tipo_documento_id : bigint <<FK>>
+  validado : boolean <<nullable>>
+  archivo : varchar(100) <<nullable>>
+  fecha_validacion : timestamp <<nullable>>
+  ..
+  UNIQUE (postulacion_id, tipo_documento_id)
+}
+
+entity "contador_referencia" as contador {
+  * id : bigint <<PK>>
+  --
+  * ultimo_numero : integer
+  ..
+  Fila única (pk=1)
+}
+
+' ===================== RELACIONES (notación pata de gallo) =====================
+' ||  = exactamente uno      o{ = cero o muchos      |{ = uno o muchos     |o = cero o uno
+
+usuario ||--o| perfil : "1 usuario : 0..1 perfil\n(usuario_id, unique)"
+usuario ||--o| formulario : "1 usuario : 0..1 formulario\n(usuario_id, unique)"
+usuario ||--o{ convocatoria : "creada_por_id\n(SET NULL)"
+usuario ||--o{ postulacion : "estudiante_id\n(PROTECT)"
+
+convocatoria }o--o{ conv_becas
+beca }o--o{ conv_becas
+convocatoria }o--o{ conv_docs
+tipo_doc }o--o{ conv_docs
+
+convocatoria ||--o{ postulacion : "convocatoria_id\n(PROTECT)"
+beca ||--o{ postulacion : "beca_id\n(PROTECT)"
+formulario ||--o{ postulacion : "formulario_id\n(PROTECT)"
+formulario ||--o{ integrante : "formulario_id\n(CASCADE)"
+
+postulacion ||--o{ documento : "postulacion_id\n(CASCADE)"
+tipo_doc ||--o{ documento : "tipo_documento_id\n(PROTECT)"
+
+note bottom of contador
+  Sin relaciones FK. Concurrencia controlada
+  con SELECT ... FOR UPDATE (select_for_update())
+  para emitir numero_referencia sin colisiones.
+end note
+
+note as N1
+  Tablas de auditoría NO diagramadas aquí (generadas
+  automáticamente por django-simple-history, mismo
+  esquema que su tabla origen + history_id, history_date,
+  history_type, history_user_id): historicalconvocatoria,
+  historicalpostulacion.
+end note
+
+@enduml

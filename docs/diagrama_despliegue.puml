@@ -1,0 +1,144 @@
+@startuml diagrama_despliegue
+title Sistema de Gestión de Becas Universitarias — Diagrama de Despliegue
+
+skinparam wrapWidth 220
+skinparam node {
+  BackgroundColor<<Docker Host>> #EAF4FF
+  BorderColor<<Docker Host>> #4A78B5
+}
+skinparam cloud {
+  BackgroundColor #FFF6D5
+  BorderColor #C9A227
+}
+skinparam database {
+  BackgroundColor #E8F5E9
+  BorderColor #4C9A5A
+}
+skinparam artifact {
+  BackgroundColor #ECECEC
+  BorderColor #888888
+}
+skinparam storage {
+  BackgroundColor #F3E8FF
+  BorderColor #9B6FD1
+}
+
+actor "Estudiante / Operador / Director" as Usuario
+
+artifact "Imagen Docker\n(docker/Dockerfile: python:3.12-slim\n+ requirements.txt + entrypoint.sh)" as ImgDev
+
+' =====================================================================
+node "Equipo de desarrollo — Docker Compose\n(docker-compose.yml)" <<Docker Host>> as DevHost {
+  node "init\n<<container, one-shot>>\ncommand: migrate --noinput" as DevInit
+  node "web\n<<container>>\ncommand: runserver 0.0.0.0:8000" as DevWeb
+  node "worker\n<<container>>\ncommand: celery worker -l info" as DevWorker
+  node "beat\n<<container>>\ncommand: celery beat\n--scheduler DatabaseScheduler" as DevBeat
+  database "db\n<<container>>\nPostgreSQL 17-alpine" as DevDB
+  node "redis\n<<container>>\nRedis 7.4-alpine" as DevRedis
+  node "pgadmin\n<<container>>\npgAdmin4 (admin web BD)" as DevPgAdmin
+
+  storage "postgres_data" as VolPG
+  storage "media_data" as VolMedia
+  storage "pgadmin_data" as VolPgAdmin
+}
+
+note bottom of DevHost
+  web, worker y beat montan el código fuente (bind mount ".:/app")
+  para hot-reload en desarrollo. Todos los servicios (init, web,
+  worker, beat) se construyen desde la MISMA imagen; solo cambia
+  el "command" de docker-compose.yml.
+end note
+
+' =====================================================================
+cloud "Render — Producción\n(configurada manualmente, sin IaC)" as RenderCloud {
+  node "becas-web\n<<Docker Web Service>>\ngunicorn config.wsgi:application" as ProdWeb
+  node "becas-worker\n<<Docker Worker Service>>\ncelery worker -B\n(beat embebido, DatabaseScheduler)" as ProdWorker
+  database "becas-db\n<<PostgreSQL 17 — managed>>" as ProdDB
+  node "becas-redis\n<<Redis — managed>>" as ProdRedis
+}
+
+note bottom of RenderCloud
+  Configurado manualmente desde el dashboard de Render — el
+  blueprint render.yaml del repo NO está implementado/en uso.
+  Sin Nginx: Render termina TLS y enruta directo a Gunicorn.
+end note
+
+' =====================================================================
+node "Máquina externa (PC de escritorio)\n— docker-compose.worker.yml" as ExternalHost {
+  node "worker\n<<container>>\ncelery worker -B\n(.env.worker)" as ExtWorker
+}
+
+note bottom of ExternalHost
+  Conecta a la BD/Redis REALES de producción desde fuera de
+  Render (.env.worker, no .env). Tráfico saliente hacia los
+  endpoints externos de becas-db / becas-redis.
+end note
+
+cloud "Gmail SMTP\nsmtp.gmail.com:587 (TLS)" as SMTP
+
+' =====================================================================
+' Manifestación de artefactos: misma imagen, distintos nodos destino
+ImgDev ..> DevInit : <<deploy>>
+ImgDev ..> DevWeb : <<deploy>>
+ImgDev ..> DevWorker : <<deploy>>
+ImgDev ..> DevBeat : <<deploy>>
+ImgDev ..> ProdWeb : <<deploy>>
+ImgDev ..> ProdWorker : <<deploy>>
+ImgDev ..> ExtWorker : <<deploy>>
+
+' Comunicación en runtime + dependencia de arranque combinadas (dev)
+DevInit --> DevDB : TCP/5432 (migrate)\ndepends_on: service_healthy
+DevWeb --> DevDB : TCP/5432 (psycopg3)\ndepends_on: service_healthy
+DevWorker --> DevDB : TCP/5432\ndepends_on: service_healthy
+DevBeat --> DevDB : TCP/5432 (lee/escribe schedules)\ndepends_on: service_healthy
+DevPgAdmin --> DevDB : TCP/5432 (admin)\ndepends_on: service_healthy
+
+DevWeb --> DevRedis : TCP/6379\ndepends_on: service_healthy
+DevWorker --> DevRedis : TCP/6379 (broker db1 / result db2)\ndepends_on: service_healthy
+DevBeat --> DevRedis : TCP/6379\ndepends_on: service_healthy
+
+' Dependencia pura de orquestación (sin comunicación posterior)
+DevWeb ..> DevInit : depends_on\n(service_completed_successfully)
+DevWorker ..> DevInit : depends_on\n(service_completed_successfully)
+DevBeat ..> DevInit : depends_on\n(service_completed_successfully)
+
+' Volúmenes (persistencia)
+DevDB -- VolPG : monta
+DevWeb -- VolMedia : monta
+DevWorker -- VolMedia : monta
+DevPgAdmin -- VolPgAdmin : monta
+
+' Producción (Render)
+ProdWeb --> ProdDB : TCP/5432
+ProdWorker --> ProdDB : TCP/5432
+ProdWeb --> ProdRedis : TCP (broker/result backend)
+ProdWorker --> ProdRedis : TCP (broker/result backend)
+
+' Worker externo -> servicios de producción
+ExtWorker ..> ProdDB : TCP/5432 externo\n(.env.worker)
+ExtWorker ..> ProdRedis : TCP externo\n(.env.worker)
+
+' Notificaciones por correo (app notificaciones, vía Celery)
+DevWorker ..> SMTP : SMTP/587 TLS
+ProdWorker ..> SMTP : SMTP/587 TLS
+ExtWorker ..> SMTP : SMTP/587 TLS
+
+' Acceso de usuarios
+Usuario --> DevWeb : HTTP\nlocalhost:8000 (solo dev)
+Usuario --> ProdWeb : HTTPS\n*.onrender.com
+
+legend right
+  |= Notación |= Significado |
+  | node | Host físico/virtual o contenedor Docker |
+  | <<Docker Host>> | Máquina que ejecuta Docker Compose |
+  | database | Servidor de base de datos (PostgreSQL) |
+  | storage | Volumen de persistencia (Docker named volume) |
+  | cloud | Servicio externo / PaaS fuera del control directo del repo |
+  | artifact | Unidad desplegable (imagen Docker) |
+  | --> (sólida) | Comunicación en tiempo de ejecución (protocolo indicado) |
+  | ..> (punteada) | Dependencia de arranque/orquestación o <<deploy>> de artefacto |
+  | depends_on: service_healthy | Espera healthcheck del contenedor destino |
+  | depends_on: service_completed_successfully | Espera a que el contenedor one-shot termine OK |
+endlegend
+
+@enduml

@@ -1,0 +1,92 @@
+@startuml seq_generar_ranking
+
+title Diagrama de Secuencia — Procesar Formularios Socioeconómicos (CU23) y Generar Ranking (CU24)
+
+actor Director
+participant "reportes.views" as View
+participant "reportes.services" as Services
+participant "pandas.DataFrame" as Pandas
+participant "Postulacion\n(models.py)" as ModelPost
+participant "Beca\n(models.py)" as ModelBeca
+participant "signals.py" as Signals
+participant "notificaciones.receivers" as Receiver
+participant "notificaciones.services" as NotifServices
+
+== CU23 · Procesar Formularios Socioeconómicos ==
+
+Director -> View : POST procesar(convocatoria_id)
+activate View
+View -> Services : procesar_formularios_socioeconomicos(convocatoria)
+activate Services
+
+Services -> ModelPost : Postulacion.objects.filter(\nconvocatoria=X, estado=APROBADA)\n.select_related("formulario", "beca")
+ModelPost --> Services : queryset de postulaciones aprobadas
+
+Services -> Pandas : construir DataFrame(id, ingreso,\nfamiliares, desempleado, no_propietario,\nsin_beca_previa, peso_* de cada Beca)
+activate Pandas
+
+Pandas -> Pandas : ingreso_max = df["ingreso"].max()\nfamiliares_max = df["familiares"].max()
+Pandas -> Pandas : ingreso_norm = ingreso / ingreso_max\nfamiliares_norm = familiares / familiares_max
+
+Pandas -> Pandas : puntaje = (1-ingreso_norm)*peso_ingreso\n+ desempleado*peso_desempleo\n+ familiares_norm*peso_familiares\n+ no_propietario*peso_no_propietario\n+ sin_beca_previa*peso_sin_beca_previa
+Pandas --> Services : DataFrame con columna "puntaje"
+deactivate Pandas
+
+loop por cada fila del DataFrame
+  Services -> ModelPost : Postulacion.objects.filter(pk=id).update(\npuntaje_socioeconomico=puntaje,\nestado=PROCESADA)
+end
+
+Services --> View : cantidad procesada
+deactivate Services
+View --> Director : 200 OK — N postulaciones → Procesada
+deactivate View
+
+note over Pandas
+  Los pesos (peso_ingreso, peso_desempleo, peso_familiares,
+  peso_no_propietario, peso_sin_beca_previa) provienen de
+  la Beca de cada Postulacion — configurados en CU28
+  (ver seq_ponderacion_beca.puml). Cada Beca puede tener
+  ponderación distinta ⇒ puntajes de becas distintas
+  NO son comparables entre sí.
+end note
+
+== CU24 · Generar Ranking (por Beca) ==
+
+Director -> View : POST ranking(convocatoria_id,\nbeca_id, cupo, cupo_espera)
+activate View
+View -> Services : generar_ranking(convocatoria, beca,\ncupo, cupo_espera)
+activate Services
+
+Services -> ModelPost : Postulacion.objects.filter(\nconvocatoria=X, beca=Y, estado=PROCESADA)\n.order_by("-puntaje_socioeconomico", "fecha_envio")
+ModelPost --> Services : ranking ordenado (lista)
+
+loop por cada postulación, índice i en el ranking
+  alt i < cupo
+    Services -> ModelPost : estado = ADJUDICADA
+  else i < cupo + cupo_espera
+    Services -> ModelPost : estado = LISTA_ESPERA
+  else
+    Services -> ModelPost : estado = NO_ADJUDICADA
+  end
+  Services -> ModelPost : postulacion.save()
+  Services -> Signals : resultado_adjudicacion.send(postulacion)
+end
+
+deactivate Services
+View --> Director : 200 OK — ranking publicado
+deactivate View
+
+Signals -> Receiver : resultado_adjudicacion (señal, una vez por postulación)
+activate Receiver
+Receiver -> NotifServices : notificar_resultado_adjudicacion(postulacion)
+NotifServices -> NotifServices : Notificacion.objects.create(PENDIENTE)\n+ tarea_enviar_email.delay() [CU27]
+deactivate Receiver
+
+note over ModelBeca, Services
+  El ranking es independiente POR BECA dentro de la
+  misma convocatoria: dos becas con cupos distintos
+  compiten en listas separadas, cada una con sus
+  propios pesos de ponderación.
+end note
+
+@enduml

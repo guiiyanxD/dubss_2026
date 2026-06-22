@@ -1,0 +1,100 @@
+@startuml clases_postulaciones
+
+title Diagrama de Clases — apps.postulaciones (P5: Postulación y Documentación)
+
+skinparam classAttributeIconSize 0
+skinparam class {
+  BackgroundColor #EFF6FF
+  BorderColor #1A5276
+}
+
+enum "Postulacion.Estado" as EstadoPost {
+  BORRADOR
+  ENVIADA
+  EN_REVISION
+  APROBADA
+  PROCESADA
+  ADJUDICADA
+  NO_ADJUDICADA
+  LISTA_ESPERA
+  RECHAZADA_NO_PRESENTACION
+  RECHAZADA_IDENTIDAD
+  RECHAZADA_DOCUMENTACION
+}
+
+class Postulacion {
+  + estado: CharField(30) = BORRADOR
+  + fecha_creacion: DateTimeField <<auto_now_add>>
+  + fecha_envio: DateTimeField {nullable}
+  + observaciones_identidad: TextField
+  + puntaje_socioeconomico: DecimalField(5,2) {nullable}
+  + numero_referencia: PositiveIntegerField {unique, nullable}
+  + history: HistoricalRecords
+  --
+  {static} ESTADOS_ACTIVOS: list[Estado]
+  + __str__(): str
+}
+note right of Postulacion
+  ESTADOS_ACTIVOS = [BORRADOR, ENVIADA,
+  EN_REVISION, APROBADA] — usado para
+  bloquear una 2ª postulación activa
+  simultánea del mismo estudiante (regla
+  de negocio de CLAUDE.md).
+  Usa simple_history → HistoricalPostulacion.
+end note
+
+class DocumentoPostulacion {
+  + validado: BooleanField {nullable}
+  + archivo: FileField {nullable}
+  + fecha_validacion: DateTimeField {nullable}
+  --
+  + __str__(): str
+}
+note right of DocumentoPostulacion
+  validado: None=pendiente, True=aprobado,
+  False=rechazado (binario, sin estado
+  "Observada" — regla explícita de CLAUDE.md).
+  unique_together = (postulacion, tipo_documento)
+end note
+
+class ContadorReferencia {
+  + ultimo_numero: PositiveIntegerField = 0
+  --
+  {static} + siguiente(): int
+}
+note bottom of ContadorReferencia
+  Fila única (pk=1). siguiente() usa
+  select_for_update() para generar números
+  de referencia secuenciales sin colisiones
+  en envíos concurrentes.
+end note
+
+class "Usuario" as Usuario <<apps.acceso>>
+class "Convocatoria" as Convocatoria <<apps.convocatorias>>
+class "Beca" as Beca <<apps.convocatorias>>
+class "FormularioSocioeconomico" as Formulario <<apps.configuracion>>
+class "TipoDocumento" as TipoDocumento <<apps.convocatorias>>
+
+Postulacion "0..*" --> "1" EstadoPost : estado
+
+Postulacion "0..*" --> "1" Usuario : estudiante\n(on_delete=PROTECT)
+Postulacion "0..*" --> "1" Convocatoria : convocatoria\n(on_delete=PROTECT)
+Postulacion "0..*" --> "1" Beca : beca\n(on_delete=PROTECT)
+Postulacion "0..*" --> "1" Formulario : formulario\n(on_delete=PROTECT)
+
+Postulacion "1" *-- "0..*" DocumentoPostulacion : documentos\n(on_delete=CASCADE)
+DocumentoPostulacion "0..*" --> "1" TipoDocumento : tipo_documento\n(on_delete=PROTECT)
+
+note bottom
+  PROTECT en estudiante/convocatoria/beca/formulario: impide borrar
+  el registro maestro mientras existan postulaciones asociadas
+  (preserva integridad histórica). CASCADE solo en
+  Postulacion → DocumentoPostulacion (documentos
+  no tienen sentido sin su postulación).
+  Todas las relaciones son navegables en ambos sentidos
+  vía related_name de Django (estudiante.postulaciones,
+  convocatoria.postulaciones, beca.postulaciones,
+  formulario.postulaciones, postulacion.documentos).
+end note
+
+@enduml

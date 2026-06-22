@@ -1,0 +1,88 @@
+@startuml er_soporte_ia_notificaciones
+
+title Modelo de Datos (Entidad-Relación) — Soporte: Notificaciones y Asistente de IA
+
+skinparam linetype orthogonal
+hide circle
+skinparam class {
+  BackgroundColor #FDEBD0
+  BorderColor #9C640C
+}
+
+entity "usuario" as usuario <<apps.acceso — ver er_dominio_academico.puml>> {
+  * id : bigint <<PK>>
+  --
+  * email : varchar(254) <<unique>>
+}
+
+entity "convocatoria" as convocatoria <<apps.convocatorias — ver er_dominio_academico.puml>> {
+  * id : bigint <<PK>>
+  --
+  * nombre : varchar(200)
+}
+
+entity "notificacion" as notificacion {
+  * id : bigint <<PK>>
+  --
+  * usuario_id : bigint <<FK>>
+  * asunto : varchar(250)
+  * cuerpo : text
+  * estado : varchar(20)
+  error_detalle : text
+  * fecha_creacion : timestamp
+  fecha_envio : timestamp <<nullable>>
+}
+
+entity "resumen_ia" as resumen {
+  * id : bigint <<PK>>
+  --
+  convocatoria_id : bigint <<FK, nullable>>
+  * usuario_id : bigint <<FK>>
+  prompt_adicional : text
+  * estado : varchar(20)
+  resultado : text
+  error_detalle : text
+  * fecha_creacion : timestamp
+  fecha_completado : timestamp <<nullable>>
+}
+
+entity "conversacion" as conversacion {
+  * id : bigint <<PK>>
+  --
+  * usuario_id : bigint <<FK>>
+  titulo : varchar(200)
+  * fecha_creacion : timestamp
+  * fecha_actualizacion : timestamp
+}
+
+entity "mensaje_chat" as mensaje {
+  * id : bigint <<PK>>
+  --
+  * conversacion_id : bigint <<FK>>
+  * rol : varchar(20)
+  * contenido : text
+  tools_usadas : jsonb <<nullable>>
+  archivo : varchar(100) <<nullable>>
+  * fecha_creacion : timestamp
+}
+
+usuario ||--o{ notificacion : "usuario_id\n(CASCADE)"
+usuario ||--o{ resumen : "usuario_id\n(CASCADE)"
+usuario ||--o{ conversacion : "usuario_id\n(CASCADE)"
+convocatoria |o--o{ resumen : "convocatoria_id\n(SET NULL, nullable)"
+conversacion ||--o{ mensaje : "conversacion_id\n(CASCADE)"
+
+note bottom of resumen
+  convocatoria_id = NULL ⇒ resumen agregado
+  de TODAS las convocatorias (no de una sola).
+end note
+
+note as N1
+  Tablas de infraestructura/terceros no diagramadas:
+  django_celery_beat_periodictask, ...intervalschedule,
+  ...crontabschedule (Celery Beat); account_emailaddress
+  (django-allauth); auth_group, auth_permission
+  (sistema de roles nativo de Django, ver clases_acceso.puml).
+end note
+
+@enduml

@@ -1,0 +1,123 @@
+@startuml clases_general
+
+title Diagrama de Clases General — Vista de Dominio Completa\nSistema de Gestión de Becas Universitarias
+
+skinparam classAttributeIconSize 0
+skinparam class {
+  BackgroundColor #EFF6FF
+  BorderColor #1A5276
+}
+skinparam packageStyle rectangle
+
+package "apps.acceso" {
+  class Usuario {
+    + email: EmailField {unique}
+    + get_rol(): str
+  }
+  class PerfilEstudiante {
+    + nro_registro: CharField {unique}
+    + carrera: CharField
+    + anio_ingreso: PositiveSmallIntegerField
+  }
+}
+
+package "apps.convocatorias" {
+  class Beca {
+    + nombre: CharField {unique}
+    + peso_ingreso/desempleo/familiares/\nno_propietario/sin_beca_previa: int
+    + clean(): void
+  }
+  class TipoDocumento {
+    + nombre: CharField {unique}
+  }
+  class Convocatoria {
+    + nombre: CharField
+    + fecha_apertura/fecha_cierre: DateTimeField
+    + estado: CharField
+    + esta_vigente(): bool
+  }
+}
+
+package "apps.configuracion" {
+  class FormularioSocioeconomico {
+    + ~30 campos del cuestionario\nsocioeconómico (DUBS 002)
+    + completado: BooleanField
+  }
+  class IntegranteFamiliar {
+    + nombre_completo: CharField
+    + parentesco: CharField
+    + edad: PositiveSmallIntegerField
+  }
+}
+
+package "apps.postulaciones" {
+  class Postulacion {
+    + estado: CharField
+    + puntaje_socioeconomico: DecimalField
+    + numero_referencia: PositiveIntegerField {unique}
+  }
+  class DocumentoPostulacion {
+    + validado: BooleanField {nullable}
+    + archivo: FileField
+  }
+  class ContadorReferencia {
+    + ultimo_numero: PositiveIntegerField
+    + siguiente(): int
+  }
+}
+
+package "apps.notificaciones" {
+  class Notificacion {
+    + asunto: CharField
+    + estado: CharField
+  }
+}
+
+package "apps.reportes" {
+  class ResumenIA {
+    + estado: CharField
+    + resultado: TextField
+  }
+  class Conversacion {
+    + titulo: CharField
+  }
+  class MensajeChat {
+    + contenido: TextField
+    + tools_usadas: JSONField
+  }
+}
+
+' ===== Relaciones (cardinalidad y navegabilidad — detalle completo en
+'       los diagramas por app) =====
+
+Usuario "1" -- "0..1" PerfilEstudiante
+Usuario "1" -- "0..1" FormularioSocioeconomico
+Usuario "1" -- "0..*" Convocatoria : creada_por
+Usuario "1" -- "0..*" Postulacion : estudiante
+Usuario "1" -- "0..*" Notificacion
+Usuario "1" -- "0..*" ResumenIA
+Usuario "1" -- "0..*" Conversacion
+
+Convocatoria "0..*" -- "0..*" Beca
+Convocatoria "0..*" -- "0..*" TipoDocumento
+Convocatoria "1" -- "0..*" Postulacion
+Convocatoria "1" -- "0..*" ResumenIA
+
+Beca "1" -- "0..*" Postulacion
+FormularioSocioeconomico "1" *-- "0..*" IntegranteFamiliar
+FormularioSocioeconomico "1" -- "0..*" Postulacion
+
+Postulacion "1" *-- "0..*" DocumentoPostulacion
+TipoDocumento "1" -- "0..*" DocumentoPostulacion
+
+Conversacion "1" *-- "0..*" MensajeChat
+
+note bottom
+  16 clases de dominio en 6 paquetes. Diagramas detallados (atributos
+  completos, métodos, enums, restricciones, navegabilidad por
+  related_name) disponibles por paquete en este mismo directorio:
+  clases_acceso.puml, clases_convocatorias.puml, clases_configuracion.puml,
+  clases_postulaciones.puml, clases_notificaciones.puml, clases_reportes.puml
+end note
+
+@enduml

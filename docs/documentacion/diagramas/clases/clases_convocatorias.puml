@@ -1,0 +1,88 @@
+@startuml clases_convocatorias
+
+title Diagrama de Clases — apps.convocatorias (P3: Convocatorias y Catálogos)
+
+skinparam classAttributeIconSize 0
+skinparam class {
+  BackgroundColor #EFF6FF
+  BorderColor #1A5276
+}
+
+enum "Convocatoria.Estado" as EstadoConv {
+  BORRADOR
+  PUBLICADA
+  CERRADA
+}
+
+class Beca {
+  + nombre: CharField(150) {unique}
+  + descripcion: TextField
+  + activa: BooleanField = True
+  + peso_ingreso: PositiveSmallIntegerField = 40
+  + peso_desempleo: PositiveSmallIntegerField = 20
+  + peso_familiares: PositiveSmallIntegerField = 20
+  + peso_no_propietario: PositiveSmallIntegerField = 10
+  + peso_sin_beca_previa: PositiveSmallIntegerField = 10
+  --
+  + __str__(): str
+  + clean(): void
+}
+note right of Beca
+  clean() valida que la suma de los
+  5 pesos de ponderación sea exactamente
+  100; lanza ValidationError si no.
+  CU28 (nuevo) — Ponderación configurable
+  por beca. apps/convocatorias/models.py:7-43
+end note
+
+class TipoDocumento {
+  + nombre: CharField(150) {unique}
+  + descripcion: TextField
+  + activo: BooleanField = True
+  --
+  + __str__(): str
+}
+
+class Convocatoria {
+  + nombre: CharField(200)
+  + descripcion: TextField
+  + fecha_apertura: DateTimeField
+  + fecha_cierre: DateTimeField
+  + estado: CharField(20) = BORRADOR
+  + history: HistoricalRecords
+  --
+  + __str__(): str
+  + esta_vigente(): bool
+}
+note right of Convocatoria
+  esta_vigente() = (estado == PUBLICADA)
+  AND (fecha_apertura <= ahora <= fecha_cierre)
+  Usa simple_history → genera tabla
+  HistoricalConvocatoria (auditoría de cambios).
+end note
+
+class "Usuario" as Usuario <<apps.acceso>> {
+  (definida en apps.acceso —
+  ver clases_acceso.puml)
+}
+
+class "Postulacion" as Postulacion <<apps.postulaciones>> {
+  (definida en apps.postulaciones —
+  ver clases_postulaciones.puml)
+}
+
+Convocatoria "0..1" --> "1" EstadoConv : estado
+
+Convocatoria "0..*" --> "0..1" Usuario : creada_por >\n(on_delete=SET_NULL)
+note on link
+  related_name="convocatorias_creadas"
+  (navegable: usuario.convocatorias_creadas)
+end note
+
+Convocatoria "0..*" -- "0..*" Beca : becas >\n(ManyToMany)
+Convocatoria "0..*" -- "0..*" TipoDocumento : documentos_requeridos >\n(ManyToMany)
+
+Beca "1" <-- "0..*" Postulacion : beca\n(on_delete=PROTECT)
+Convocatoria "1" <-- "0..*" Postulacion : convocatoria\n(on_delete=PROTECT)
+
+@enduml

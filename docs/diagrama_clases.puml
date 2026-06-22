@@ -1,0 +1,356 @@
+@startuml diagrama_clases
+title Sistema de Gestión de Becas Universitarias — Diagrama de Clases (Modelo de Dominio)
+
+skinparam classAttributeIconSize 0
+skinparam wrapWidth 250
+skinparam class {
+  BackgroundColor<<Django>> #ECECEC
+  BorderColor<<Django>> #888888
+  BackgroundColor<<enumeration>> #FFF6D5
+  BorderColor<<enumeration>> #C9A227
+  BackgroundColor<<manager>> #E8F0FE
+}
+hide circle
+hide empty members
+
+note as NotaApps
+  Las apps **usuarios** y **reportes** (CLAUDE.md) no definen
+  modelos propios en su models.py:
+  - usuarios: el modelo de usuario vive en la app "acceso" (Usuario).
+  - reportes: opera sobre modelos de "postulaciones", "convocatorias"
+    y "configuracion" (CU23-CU26), sin persistencia propia.
+end note
+
+' =====================================================================
+package "django.contrib.auth (Django)" <<Django>> {
+  class AbstractUser <<Django>> {
+    + password : String
+    + first_name : String
+    + last_name : String
+    + is_active : Boolean = True
+    + is_staff : Boolean = False
+    + is_superuser : Boolean = False
+    + last_login : DateTime
+    + date_joined : DateTime
+    --
+    + get_full_name() : String
+    + get_short_name() : String
+    + check_password(raw_password) : Boolean
+  }
+
+  class BaseUserManager <<Django>> {
+    + normalize_email(email) : String
+    + create_user(**kwargs) : AbstractBaseUser
+  }
+
+  class Group <<Django>> {
+    + name : String {unique}
+  }
+}
+
+' =====================================================================
+package "acceso (P1)" {
+  class UsuarioManager <<manager>> {
+    + create_user(email, password, **extra_fields) : Usuario
+    + create_superuser(email, password, **extra_fields) : Usuario
+  }
+
+  class Usuario <<Django Model>> {
+    + email : String {unique}
+    --
+    + USERNAME_FIELD = "email"
+    + REQUIRED_FIELDS = []
+    --
+    + __str__() : String
+    + get_rol() : String
+  }
+  note bottom of Usuario
+    username eliminado (= None).
+    Login y autenticación por email.
+    get_rol() retorna el primer Group
+    asignado (Director/Operador/Estudiante).
+  end note
+
+  class PerfilEstudiante {
+    + legajo : String {unique}
+    + carrera : String
+    + anio_ingreso : Integer
+    --
+    + __str__() : String
+  }
+}
+
+' =====================================================================
+package "convocatorias (P3)" {
+  class Beca {
+    + nombre : String {unique}
+    + descripcion : String
+    + activa : Boolean = True
+    --
+    + __str__() : String
+  }
+
+  class TipoDocumento {
+    + nombre : String {unique}
+    + descripcion : String
+    + activo : Boolean = True
+    --
+    + __str__() : String
+  }
+
+  class Convocatoria {
+    + nombre : String
+    + descripcion : String
+    + fecha_apertura : DateTime
+    + fecha_cierre : DateTime
+    + estado : Estado = BORRADOR
+    --
+    + __str__() : String
+    + esta_vigente() : Boolean
+  }
+  note right of Convocatoria
+    Historial de cambios vía
+    django-simple-history (campo history).
+    Cierre automático por Celery Beat
+    al vencer fecha_cierre (CU11).
+    Pueden coexistir múltiples
+    convocatorias PUBLICADAS a la vez.
+  end note
+
+  enum "Convocatoria.Estado" as ConvocatoriaEstado <<enumeration>> {
+    BORRADOR
+    PUBLICADA
+    CERRADA
+  }
+}
+
+' =====================================================================
+package "configuracion (P4)" {
+  class FormularioSocioeconomico {
+    + situacion_laboral : SituacionLaboral
+    + ingreso_mensual_familiar : Decimal
+    + cantidad_familiares : Integer
+    + situacion_habitacional : SituacionHabitacional
+    + tiene_beca_previa : Boolean = False
+    + observaciones : String
+    + completado : Boolean = False
+    + fecha_actualizacion : DateTime {auto_now}
+    + numero_celular : String
+    + telefono_referencia : String
+    --
+    + dependencia_economica : DependenciaEconomica
+    + tipo_ocupacion_sosten : TipoOcupacionSosten
+    --
+    + tiene_hijos : Boolean = False
+    + cantidad_hijos : Integer {nullable}
+    --
+    + lugar_procedencia : String
+    --
+    + residencia_lugar : String
+    + residencia_provincia : String
+    + residencia_zona_anillo : String
+    + residencia_barrio : String
+    + residencia_calle : String
+    --
+    + tipo_tenencia_vivienda : TipoTenenciaVivienda
+    --
+    + dormitorios : Integer = 0
+    + banos : Integer = 0
+    + comedores : Integer = 0
+    + salas : Integer = 0
+    + patios : Integer = 0
+    --
+    + detalle_otro_beneficio : String
+    --
+    + tiene_discapacidad : Boolean = False
+    + detalle_discapacidad : String
+    --
+    + __str__() : String
+  }
+  note right of FormularioSocioeconomico
+    Único por estudiante (relación 1 a 1)
+    y reutilizable entre postulaciones.
+  end note
+
+  class IntegranteFamiliar {
+    + nombre_completo : String
+    + parentesco : String
+    + edad : Integer
+    + ocupacion : String
+    + observacion : String
+    --
+    + __str__() : String
+  }
+
+  enum SituacionLaboral <<enumeration>> {
+    EMPLEADO
+    DESEMPLEADO
+    INDEPENDIENTE
+    NO_APLICA
+  }
+  enum SituacionHabitacional <<enumeration>> {
+    PROPIETARIO
+    ALQUILANDO
+    PRESTADA
+    OTRO
+  }
+  enum DependenciaEconomica <<enumeration>> {
+    INDEPENDIENTE
+    PADRE_MADRE
+    OTRO_FAMILIAR
+    PAREJA
+    AMBOS_PADRES
+  }
+  enum TipoOcupacionSosten <<enumeration>> {
+    ASALARIADO_FORMAL
+    ASALARIADO_INFORMAL
+    COMERCIANTE_MAYORISTA
+    RENTISTA
+    COMERCIANTE_MINORISTA
+    AGRICULTOR
+  }
+  enum TipoTenenciaVivienda <<enumeration>> {
+    HERENCIA
+    DE_LOS_PADRES
+    CEDIDA
+    ANTICRETICO
+    ALQUILER
+  }
+}
+
+' =====================================================================
+package "postulaciones (P5)" {
+  class Postulacion {
+    + estado : Estado = BORRADOR
+    + fecha_creacion : DateTime {auto_now_add}
+    + fecha_envio : DateTime {nullable}
+    + observaciones_identidad : String
+    + puntaje_socioeconomico : Decimal {nullable}
+    + numero_referencia : Integer {unique, nullable}
+    --
+    + {static} ESTADOS_ACTIVOS : List<Estado>
+    + __str__() : String
+  }
+  note right of Postulacion
+    Un estudiante solo puede tener UNA
+    postulación activa a la vez (Borrador,
+    Enviada, En Revisión, Aprobada) —
+    ver ESTADOS_ACTIVOS.
+    Si es rechazada y la convocatoria sigue
+    vigente, el estudiante puede re-postular.
+    Historial vía django-simple-history
+    (campo history).
+  end note
+
+  enum "Postulacion.Estado" as PostulacionEstado <<enumeration>> {
+    BORRADOR
+    ENVIADA
+    EN_REVISION
+    APROBADA
+    PROCESADA
+    ADJUDICADA
+    NO_ADJUDICADA
+    LISTA_ESPERA
+    RECHAZADA_NO_PRESENTACION
+    RECHAZADA_IDENTIDAD
+    RECHAZADA_DOCUMENTACION
+  }
+
+  class DocumentoPostulacion {
+    + validado : Boolean {nullable}
+    + archivo : File {nullable}
+    + fecha_validacion : DateTime {nullable}
+    --
+    + __str__() : String
+  }
+  note bottom of DocumentoPostulacion
+    Validación binaria (Aprobada/Rechazada),
+    no existe "Observada".
+    Solo se digitaliza (archivo) la
+    documentación aprobada.
+    unique_together: (postulacion, tipo_documento)
+  end note
+
+  class ContadorReferencia {
+    + ultimo_numero : Integer = 0
+    --
+    + {static} siguiente() : Integer
+  }
+  note right of ContadorReferencia
+    Fila única (singleton, pk=1).
+    Usa select_for_update() para evitar
+    números duplicados en envíos concurrentes.
+  end note
+}
+
+' =====================================================================
+package "notificaciones (P6)" {
+  class Notificacion {
+    + asunto : String
+    + cuerpo : String
+    + estado : Estado = PENDIENTE
+    + error_detalle : String
+    + fecha_creacion : DateTime {auto_now_add}
+    + fecha_envio : DateTime {nullable}
+    --
+    + __str__() : String
+  }
+
+  enum "Notificacion.Estado" as NotificacionEstado <<enumeration>> {
+    PENDIENTE
+    ENVIADA
+    ERROR
+  }
+}
+
+' =====================================================================
+' Herencia / dependencias de manager
+Usuario --|> AbstractUser
+UsuarioManager --|> BaseUserManager
+Usuario ..> UsuarioManager : <<use>>\nobjects
+
+' Enums usados por cada clase (dependencia)
+Convocatoria ..> ConvocatoriaEstado : estado
+FormularioSocioeconomico ..> SituacionLaboral : situacion_laboral
+FormularioSocioeconomico ..> SituacionHabitacional : situacion_habitacional
+FormularioSocioeconomico ..> DependenciaEconomica : dependencia_economica
+FormularioSocioeconomico ..> TipoOcupacionSosten : tipo_ocupacion_sosten
+FormularioSocioeconomico ..> TipoTenenciaVivienda : tipo_tenencia_vivienda
+Postulacion ..> PostulacionEstado : estado
+Notificacion ..> NotificacionEstado : estado
+
+' Asociaciones de dominio (FK / O2O): navegación desde el poseedor del campo
+' hacia la clase referenciada. Multiplicidad junto a cada clase indica
+' "cuántas instancias de esa clase participan por una instancia del otro lado".
+PerfilEstudiante "0..1" --> "1" Usuario : usuario
+FormularioSocioeconomico "0..1" --> "1" Usuario : usuario
+IntegranteFamiliar "0..*" --> "1" FormularioSocioeconomico : formulario
+
+Convocatoria "0..*" --> "0..1" Usuario : creada_por
+Postulacion "0..*" --> "1" Usuario : estudiante
+Postulacion "0..*" --> "1" Convocatoria : convocatoria
+Postulacion "0..*" --> "1" Beca : beca
+Postulacion "0..*" --> "1" FormularioSocioeconomico : formulario
+DocumentoPostulacion "0..*" --> "1" Postulacion : postulacion
+DocumentoPostulacion "0..*" --> "1" TipoDocumento : tipo_documento
+Notificacion "0..*" --> "1" Usuario : usuario
+
+' Asociaciones Many-to-Many (bidireccionales, sin flecha)
+Convocatoria "0..*" -- "0..*" Beca : becas
+Convocatoria "0..*" -- "0..*" TipoDocumento : documentos_requeridos
+Usuario "0..*" -- "0..*" Group : groups
+
+legend right
+  |= Notación |= Significado |
+  | --> | Navegación FK / O2O (desde la clase que contiene la referencia hacia la clase referenciada) |
+  | -- | Asociación Many-to-Many (bidireccional) |
+  | --\|> | Herencia (generalización) |
+  | ..> | Dependencia / uso (enum de un campo, manager del modelo) |
+  | "0..1", "1", "0..*" | Multiplicidad en cada extremo de la asociación |
+  | <<enumeration>> | Enum Python (django.db.models.TextChoices) |
+  | <<Django>> | Clase del framework Django, no definida en este proyecto |
+  | <<manager>> | Manager de Django (objects) |
+  | {unique} / {nullable} / {auto_now_add} | Restricciones de campo relevantes |
+endlegend
+
+@enduml
