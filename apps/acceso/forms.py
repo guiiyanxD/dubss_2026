@@ -19,3 +19,11 @@ class RegistroEstudianteForm(forms.Form):
             MaxValueValidator(datetime.date.today().year),
         ],
     )
+    acepta_terminos = forms.BooleanField(
+        label="He leído y acepto la política de privacidad y los términos y condiciones.",
+        required=True,
+        error_messages={
+            "required": "Debés aceptar la política de privacidad y los términos y "
+            "condiciones para poder registrarte."
+        },
+    )
