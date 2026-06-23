@@ -232,10 +232,15 @@ def listar_postulaciones_estudiante(*, estudiante):
 
 
 def listar_cola_revision(*, estado=None, convocatoria_id=None, beca_id=None, busqueda=None):
-    """Retorna postulaciones pendientes de revisión (ENVIADA o EN_REVISION), con filtros opcionales."""
+    """Retorna postulaciones en revisión o ya aprobadas (ENVIADA, EN_REVISION o APROBADA),
+    con filtros opcionales."""
     qs = (
         Postulacion.objects.filter(
-            estado__in=[Postulacion.Estado.ENVIADA, Postulacion.Estado.EN_REVISION]
+            estado__in=[
+                Postulacion.Estado.ENVIADA,
+                Postulacion.Estado.EN_REVISION,
+                Postulacion.Estado.APROBADA,
+            ]
         )
         .select_related("estudiante__perfil_estudiante", "convocatoria", "beca")
         .order_by("fecha_envio")

@@ -71,8 +71,8 @@
 </div>
 {% endif %}
 
-<!-- Validación de documentos (solo para EN_REVISION) -->
-{% if postulacion.estado == 'EN_REVISION' %}
+<!-- Validación/digitalización de documentos (EN_REVISION: faltan validar; APROBADA: validados, puede faltar digitalizar) -->
+{% if postulacion.estado == 'EN_REVISION' or postulacion.estado == 'APROBADA' %}
 <div class="card shadow-sm mb-4">
     <div class="card-header"><strong>CU19 — Documentos Requeridos</strong></div>
     <div class="card-body p-0">

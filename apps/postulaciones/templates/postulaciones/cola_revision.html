@@ -18,6 +18,7 @@
                 <option value="">Todos los estados</option>
                 <option value="ENVIADA" {% if estado == "ENVIADA" %}selected{% endif %}>Enviada</option>
                 <option value="EN_REVISION" {% if estado == "EN_REVISION" %}selected{% endif %}>En Revisión</option>
+                <option value="APROBADA" {% if estado == "APROBADA" %}selected{% endif %}>Aprobada</option>
             </select>
         </div>
         <div class="col-md-3">
@@ -71,6 +72,8 @@
                         <span class="badge bg-info text-dark">Enviada</span>
                     {% elif p.estado == 'EN_REVISION' %}
                         <span class="badge bg-warning text-dark">En Revisión</span>
+                    {% elif p.estado == 'APROBADA' %}
+                        <span class="badge bg-success">Aprobada</span>
                     {% endif %}
                 </td>
                 <td>{{ p.fecha_envio|date:"d/m/Y H:i"|default:"—" }}</td>

@@ -249,3 +249,33 @@ def test_marcar_rechazadas_por_cierre(postulacion_borrador, convocatoria):
     services.marcar_rechazadas_por_cierre(convocatoria=convocatoria)
     postulacion_borrador.refresh_from_db()
     assert postulacion_borrador.estado == Postulacion.Estado.RECHAZADA_NO_PRESENTACION
+
+
+@pytest.mark.django_db
+def test_listar_cola_revision_incluye_aprobada(postulacion_borrador):
+    postulacion_borrador.estado = Postulacion.Estado.APROBADA
+    postulacion_borrador.save()
+
+    resultado = services.listar_cola_revision()
+    assert postulacion_borrador in resultado
+
+
+@pytest.mark.django_db
+def test_listar_cola_revision_excluye_estados_terminales(postulacion_borrador):
+    postulacion_borrador.estado = Postulacion.Estado.PROCESADA
+    postulacion_borrador.save()
+
+    resultado = services.listar_cola_revision()
+    assert postulacion_borrador not in resultado
+
+
+@pytest.mark.django_db
+def test_listar_cola_revision_filtro_por_estado_aprobada(postulacion_borrador):
+    postulacion_borrador.estado = Postulacion.Estado.APROBADA
+    postulacion_borrador.save()
+
+    resultado = services.listar_cola_revision(estado=Postulacion.Estado.APROBADA)
+    assert postulacion_borrador in resultado
+
+    resultado_enviada = services.listar_cola_revision(estado=Postulacion.Estado.ENVIADA)
+    assert postulacion_borrador not in resultado_enviada
