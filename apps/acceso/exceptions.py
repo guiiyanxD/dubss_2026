@@ -2,7 +2,7 @@ class EmailYaRegistradoError(Exception):
     pass
 
 
-class LegajoYaRegistradoError(Exception):
+class NroRegistroYaRegistradoError(Exception):
     pass
 
 

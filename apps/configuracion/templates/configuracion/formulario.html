@@ -34,10 +34,26 @@
                         propios datos).
                     </p>
                     {{ formset.management_form }}
-                    {% for integrante_form in formset %}
-                        {{ integrante_form|crispy }}
-                        <hr>
-                    {% endfor %}
+                    <div id="integrantes-container">
+                        {% for integrante_form in formset %}
+                            {% if forloop.counter0 < formset.initial_form_count %}
+                                {% include "configuracion/_integrante_fila.html" with integrante_form=integrante_form es_existente=True %}
+                            {% else %}
+                                {% include "configuracion/_integrante_fila.html" with integrante_form=integrante_form es_existente=False %}
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+
+                    <button type="button"
+                            id="btn-agregar-integrante"
+                            class="btn btn-sm btn-outline-primary mt-2"
+                            hx-get="{% url 'configuracion:integrante_nueva_fila' %}"
+                            hx-include="#id_integrantes-TOTAL_FORMS"
+                            hx-target="#integrantes-container"
+                            hx-swap="beforeend"
+                            {% if formset.total_form_count >= 10 %}disabled{% endif %}>
+                        <i class="bi bi-plus-circle"></i> Agregar integrante
+                    </button>
 
                     <div class="d-flex justify-content-end gap-2 mt-3">
                         <button type="submit" class="btn btn-primary">Guardar formulario</button>

@@ -6,7 +6,7 @@ from . import services
 from .exceptions import (
     ContrasenasNoCoincidenceError,
     EmailYaRegistradoError,
-    LegajoYaRegistradoError,
+    NroRegistroYaRegistradoError,
 )
 from .forms import RegistroEstudianteForm
 
@@ -42,6 +42,6 @@ def registro_estudiante_view(request):
             form.add_error("password2", str(e))
         except EmailYaRegistradoError as e:
             form.add_error("email", str(e))
-        except LegajoYaRegistradoError as e:
+        except NroRegistroYaRegistradoError as e:
             form.add_error("nro_registro", str(e))
     return render(request, "acceso/registro.html", {"form": form})

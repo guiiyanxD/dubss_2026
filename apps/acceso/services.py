@@ -4,14 +4,14 @@ from django.db import transaction
 from .exceptions import (
     ContrasenasNoCoincidenceError,
     EmailYaRegistradoError,
-    LegajoYaRegistradoError,
+    NroRegistroYaRegistradoError,
 )
 from .models import PerfilEstudiante, Usuario
 
 
 @transaction.atomic
 def autorregistrar_estudiante(
-    *, email, password1, password2, first_name, last_name, legajo, carrera, anio_ingreso
+    *, email, password1, password2, first_name, last_name, nro_registro, carrera, anio_ingreso
 ):
     """Registra un nuevo estudiante con su perfil académico básico.
 
@@ -21,7 +21,7 @@ def autorregistrar_estudiante(
         password2: Confirmación de contraseña.
         first_name: Nombre del estudiante.
         last_name: Apellido del estudiante.
-        legajo: Número de legajo universitario único.
+        nro_registro: Número de registro universitario único.
         carrera: Nombre de la carrera.
         anio_ingreso: Año de ingreso a la universidad.
 
@@ -31,7 +31,7 @@ def autorregistrar_estudiante(
     Raises:
         ContrasenasNoCoincidenceError: Si password1 != password2.
         EmailYaRegistradoError: Si el email ya existe en el sistema.
-        LegajoYaRegistradoError: Si el legajo ya está registrado.
+        NroRegistroYaRegistradoError: Si el número de registro ya está registrado.
     """
     if password1 != password2:
         raise ContrasenasNoCoincidenceError("Las contraseñas no coinciden.")
@@ -39,8 +39,8 @@ def autorregistrar_estudiante(
     if Usuario.objects.filter(email=email).exists():
         raise EmailYaRegistradoError(f"El email {email} ya está registrado.")
 
-    if PerfilEstudiante.objects.filter(legajo=legajo).exists():
-        raise LegajoYaRegistradoError(f"El legajo {legajo} ya está registrado.")
+    if PerfilEstudiante.objects.filter(nro_registro=nro_registro).exists():
+        raise NroRegistroYaRegistradoError(f"El Nro. de Registro {nro_registro} ya está registrado.")
 
     usuario = Usuario.objects.create_user(
         email=email,
@@ -51,7 +51,7 @@ def autorregistrar_estudiante(
 
     PerfilEstudiante.objects.create(
         usuario=usuario,
-        legajo=legajo,
+        nro_registro=nro_registro,
         carrera=carrera,
         anio_ingreso=anio_ingreso,
     )

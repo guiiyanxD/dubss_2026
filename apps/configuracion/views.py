@@ -1,5 +1,6 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.http import HttpResponseBadRequest
 from django.shortcuts import redirect, render
 
 from . import services
@@ -71,7 +72,7 @@ def formulario_view(request):
                 "observacion": f.cleaned_data.get("observacion", ""),
             }
             for f in formset.forms
-            if f.cleaned_data and f.tiene_datos()
+            if f.cleaned_data and not f.cleaned_data.get("DELETE") and f.tiene_datos()
         ]
         services.guardar_integrantes_familiares(formulario=formulario, integrantes=integrantes)
         messages.success(request, "Formulario guardado correctamente.")
@@ -81,4 +82,32 @@ def formulario_view(request):
         request,
         "configuracion/formulario.html",
         {"form": form, "formset": formset, "formulario": formulario},
+    )
+
+
+@login_required
+def integrante_familiar_nueva_fila(request):
+    """Devuelve el HTML de una fila vacía adicional del formset de integrantes."""
+    try:
+        total_forms = int(request.GET.get("integrantes-TOTAL_FORMS", 0))
+    except ValueError:
+        return HttpResponseBadRequest()
+
+    if total_forms >= IntegranteFamiliarFormSet.max_num:
+        return HttpResponseBadRequest("Se alcanzó el máximo de integrantes.")
+
+    formset = IntegranteFamiliarFormSet(prefix="integrantes")
+    fila_form = formset.empty_form
+    fila_form.prefix = f"integrantes-{total_forms}"
+
+    nuevo_total = total_forms + 1
+    return render(
+        request,
+        "configuracion/_integrante_fila.html",
+        {
+            "integrante_form": fila_form,
+            "es_existente": False,
+            "nuevo_total_forms": nuevo_total,
+            "deshabilitar_boton_agregar": nuevo_total >= IntegranteFamiliarFormSet.max_num,
+        },
     )

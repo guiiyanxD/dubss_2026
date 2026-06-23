@@ -112,10 +112,28 @@ class IntegranteFamiliarForm(forms.Form):
     observacion = forms.CharField(label="Observación", max_length=200, required=False)
 
     def tiene_datos(self):
-        """True si la fila tiene al menos nombre y parentesco completos."""
+        """True si la fila tiene al menos nombre y parentesco completos.
+
+        No contempla el campo DELETE agregado por can_delete=True: quien
+        filtra debe excluir antes las filas marcadas para eliminar.
+        """
         return bool(
             self.cleaned_data.get("nombre_completo") and self.cleaned_data.get("parentesco")
         )
 
 
-IntegranteFamiliarFormSet = forms.formset_factory(IntegranteFamiliarForm, extra=1, max_num=10)
+class _IntegranteFamiliarBaseFormSet(forms.BaseFormSet):
+    def add_fields(self, form, index):
+        super().add_fields(form, index)
+        form.fields["DELETE"].widget = forms.HiddenInput(
+            attrs={"class": "campo-delete-integrante"}
+        )
+
+
+IntegranteFamiliarFormSet = forms.formset_factory(
+    IntegranteFamiliarForm,
+    formset=_IntegranteFamiliarBaseFormSet,
+    extra=1,
+    max_num=10,
+    can_delete=True,
+)

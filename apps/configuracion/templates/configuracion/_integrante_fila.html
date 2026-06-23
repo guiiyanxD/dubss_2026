@@ -1,0 +1,27 @@
+{% load crispy_forms_tags %}
+<div class="integrante-fila mb-3">
+    {{ integrante_form|crispy }}
+    <div class="d-flex justify-content-end">
+        {% if es_existente %}
+        <button type="button" class="btn btn-sm btn-outline-danger"
+                onclick="this.closest('.integrante-fila').querySelector('.campo-delete-integrante').value='on'; this.closest('.integrante-fila').classList.add('d-none');">
+            <i class="bi bi-trash"></i> Quitar
+        </button>
+        {% else %}
+        <button type="button" class="btn btn-sm btn-outline-danger"
+                onclick="this.closest('.integrante-fila').remove();">
+            <i class="bi bi-trash"></i> Quitar
+        </button>
+        {% endif %}
+    </div>
+</div>
+{% if nuevo_total_forms %}
+<input type="hidden" id="id_integrantes-TOTAL_FORMS" name="integrantes-TOTAL_FORMS"
+       value="{{ nuevo_total_forms }}" hx-swap-oob="true">
+{% endif %}
+{% if deshabilitar_boton_agregar %}
+<button type="button" id="btn-agregar-integrante" class="btn btn-sm btn-outline-primary mt-2"
+        disabled hx-swap-oob="true">
+    <i class="bi bi-plus-circle"></i> Agregar integrante (máximo alcanzado)
+</button>
+{% endif %}
