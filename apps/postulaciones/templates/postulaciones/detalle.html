@@ -6,7 +6,7 @@
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h2>Detalle de Postulación</h2>
-    <a href="{% url 'postulaciones:lista' %}" class="btn btn-secondary">← Volver</a>
+    <a href="{{ back_url }}" class="btn btn-secondary">← Volver</a>
 </div>
 
 <div class="row g-4">
@@ -60,7 +60,11 @@
                     {% endfor %}
                 </ul>
                 {% else %}
-                <p class="text-muted mb-0">Sin documentos requeridos aún.</p>
+                {% if postulacion.estado == 'BORRADOR' %}
+                <p class="text-muted mb-0">Los documentos requeridos se mostrarán una vez que envíes la postulación.</p>
+                {% else %}
+                <p class="text-muted mb-0">Esta convocatoria no requiere documentación.</p>
+                {% endif %}
                 {% endif %}
             </div>
         </div>

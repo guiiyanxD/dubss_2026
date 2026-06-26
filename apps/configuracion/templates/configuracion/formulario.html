@@ -1,66 +1,504 @@
 {% extends "base.html" %}
-{% load crispy_forms_tags %}
 
 {% block title %}Formulario Socioeconómico{% endblock %}
 
 {% block content %}
 <div class="row justify-content-center">
-    <div class="col-lg-8">
-        <div class="card shadow-sm">
-            <div class="card-header bg-primary text-white">
-                <h4 class="mb-0">Formulario Socioeconómico</h4>
-            </div>
-            <div class="card-body">
-                {% if formulario and formulario.completado %}
-                <div class="alert alert-info">
-                    <i class="bi bi-info-circle-fill"></i>
-                    Formulario completado. Podés actualizarlo en cualquier momento.
-                    Última actualización: {{ formulario.fecha_actualizacion|date:"d/m/Y H:i" }}
-                </div>
-                {% else %}
-                <div class="alert alert-warning">
-                    <i class="bi bi-exclamation-triangle-fill"></i>
-                    Debés completar este formulario antes de poder postularte a una beca.
-                </div>
-                {% endif %}
-                <form method="post" novalidate>
-                    {% csrf_token %}
-                    {{ form|crispy }}
+<div class="col-lg-9">
 
-                    <h5 class="mt-4">Grupo familiar</h5>
-                    <p class="text-muted small">
-                        <i class="bi bi-info-circle-fill"></i>
-                        Agregá hasta 10 integrantes de tu grupo familiar (no incluyas tus
-                        propios datos).
-                    </p>
-                    {{ formset.management_form }}
-                    <div id="integrantes-container">
-                        {% for integrante_form in formset %}
-                            {% if forloop.counter0 < formset.initial_form_count %}
-                                {% include "configuracion/_integrante_fila.html" with integrante_form=integrante_form es_existente=True %}
-                            {% else %}
-                                {% include "configuracion/_integrante_fila.html" with integrante_form=integrante_form es_existente=False %}
-                            {% endif %}
-                        {% endfor %}
-                    </div>
-
-                    <button type="button"
-                            id="btn-agregar-integrante"
-                            class="btn btn-sm btn-outline-primary mt-2"
-                            hx-get="{% url 'configuracion:integrante_nueva_fila' %}"
-                            hx-include="#id_integrantes-TOTAL_FORMS"
-                            hx-target="#integrantes-container"
-                            hx-swap="beforeend"
-                            {% if formset.total_form_count >= 10 %}disabled{% endif %}>
-                        <i class="bi bi-plus-circle"></i> Agregar integrante
-                    </button>
-
-                    <div class="d-flex justify-content-end gap-2 mt-3">
-                        <button type="submit" class="btn btn-primary">Guardar formulario</button>
-                    </div>
-                </form>
-            </div>
-        </div>
+  <!-- Encabezado estilo constancia -->
+  <div class="card shadow-sm mb-3">
+    <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center py-3">
+      <div>
+        <div class="fw-bold fs-5">Sistema de Gestión de Becas Universitarias</div>
+        <small>Formulario Socioeconómico del Postulante</small>
+      </div>
+      <div class="text-end">
+        <div class="fw-bold">FORMULARIO DUBS 002</div>
+      </div>
     </div>
+  </div>
+
+  {% if formulario and formulario.completado %}
+  <div class="alert alert-info d-flex justify-content-between align-items-center">
+    <span>
+      <i class="bi bi-info-circle-fill"></i>
+      Formulario completado. Última actualización: {{ formulario.fecha_actualizacion|date:"d/m/Y H:i" }}
+    </span>
+    <button type="button" id="btn-toggle-edicion" class="btn btn-outline-secondary btn-sm ms-3 flex-shrink-0">
+      <i class="bi bi-pencil-fill me-1"></i> Editar formulario
+    </button>
+  </div>
+  {% else %}
+  <div class="alert alert-warning">
+    <i class="bi bi-exclamation-triangle-fill"></i>
+    Debés completar este formulario antes de poder postularte a una beca.
+  </div>
+  {% endif %}
+
+  <form method="post" novalidate id="formulario-socioeconomico">
+    {% csrf_token %}
+
+    <!-- 1° Datos del postulante -->
+    <div class="card shadow-sm mb-3">
+      <div class="card-header bg-light">
+        <strong>1° Datos del (la) postulante</strong>
+      </div>
+      <div class="card-body p-0">
+        <table class="table table-bordered mb-0">
+          <tr>
+            <td class="bg-light fw-semibold" style="width:30%">Nombre completo</td>
+            <td>{{ request.user.get_full_name }}</td>
+            <td class="bg-light fw-semibold" style="width:25%">Número de registro</td>
+            <td>{{ request.user.perfil_estudiante.nro_registro|default:"—" }}</td>
+          </tr>
+          <tr>
+            <td class="bg-light fw-semibold">Número de celular</td>
+            <td>
+              {{ form.numero_celular }}
+              {% if form.numero_celular.errors %}<div class="text-danger small mt-1">{{ form.numero_celular.errors }}</div>{% endif %}
+            </td>
+            <td class="bg-light fw-semibold">Teléfono de referencia</td>
+            <td>
+              {{ form.telefono_referencia }}
+              {% if form.telefono_referencia.errors %}<div class="text-danger small mt-1">{{ form.telefono_referencia.errors }}</div>{% endif %}
+            </td>
+          </tr>
+        </table>
+      </div>
+    </div>
+
+    <!-- 2° Dependencia económica -->
+    <div class="card shadow-sm mb-3">
+      <div class="card-header bg-light">
+        <strong>2° Dependencia económica del postulante</strong>
+      </div>
+      <div class="card-body">
+        <div class="row g-3 mb-3">
+          <div class="col-md-4">
+            <label class="form-label fw-semibold small">{{ form.dependencia_economica.label }}</label>
+            {{ form.dependencia_economica }}
+            {% if form.dependencia_economica.errors %}<div class="text-danger small">{{ form.dependencia_economica.errors }}</div>{% endif %}
+          </div>
+          <div class="col-md-4">
+            <label class="form-label fw-semibold small">{{ form.situacion_laboral.label }}</label>
+            {{ form.situacion_laboral }}
+            {% if form.situacion_laboral.errors %}<div class="text-danger small">{{ form.situacion_laboral.errors }}</div>{% endif %}
+          </div>
+          <div class="col-md-4">
+            <label class="form-label fw-semibold small">{{ form.ingreso_mensual_familiar.label }}</label>
+            {{ form.ingreso_mensual_familiar }}
+            {% if form.ingreso_mensual_familiar.errors %}<div class="text-danger small">{{ form.ingreso_mensual_familiar.errors }}</div>{% endif %}
+          </div>
+        </div>
+        <p class="fw-semibold small mb-2">Ocupación del sostén económico:</p>
+        <table class="table table-bordered table-sm mb-0">
+          <thead class="table-dark">
+            <tr>
+              <th>Tipo</th>
+              <th>Adjuntar respaldo</th>
+              <th class="text-center" style="width:90px">Selección</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% with val=form.tipo_ocupacion_sosten.value %}
+            <tr>
+              <td>Asalariado formal</td>
+              <td><small>Fotocopia de boleta de pago</small></td>
+              <td class="text-center">
+                <input type="radio" name="tipo_ocupacion_sosten" value="ASALARIADO_FORMAL"
+                       class="form-check-input" {% if val == 'ASALARIADO_FORMAL' %}checked{% endif %}>
+              </td>
+            </tr>
+            <tr>
+              <td>Asalariado informal</td>
+              <td><small>Declaración jurada</small></td>
+              <td class="text-center">
+                <input type="radio" name="tipo_ocupacion_sosten" value="ASALARIADO_INFORMAL"
+                       class="form-check-input" {% if val == 'ASALARIADO_INFORMAL' %}checked{% endif %}>
+              </td>
+            </tr>
+            <tr>
+              <td>Comerciante mayorista</td>
+              <td><small>Fotocopia del NIT</small></td>
+              <td class="text-center">
+                <input type="radio" name="tipo_ocupacion_sosten" value="COMERCIANTE_MAYORISTA"
+                       class="form-check-input" {% if val == 'COMERCIANTE_MAYORISTA' %}checked{% endif %}>
+              </td>
+            </tr>
+            <tr>
+              <td>Rentista</td>
+              <td><small>Fotocopia de boleta de renta</small></td>
+              <td class="text-center">
+                <input type="radio" name="tipo_ocupacion_sosten" value="RENTISTA"
+                       class="form-check-input" {% if val == 'RENTISTA' %}checked{% endif %}>
+              </td>
+            </tr>
+            <tr>
+              <td>Comerciante minorista</td>
+              <td><small>Fotocopia del NIT o carnet de socio o nota especificando la característica del comercio</small></td>
+              <td class="text-center">
+                <input type="radio" name="tipo_ocupacion_sosten" value="COMERCIANTE_MINORISTA"
+                       class="form-check-input" {% if val == 'COMERCIANTE_MINORISTA' %}checked{% endif %}>
+              </td>
+            </tr>
+            <tr>
+              <td>Agricultor</td>
+              <td><small>Fotocopia de carnet de socio o nota especificando la característica del agricultor</small></td>
+              <td class="text-center">
+                <input type="radio" name="tipo_ocupacion_sosten" value="AGRICULTOR"
+                       class="form-check-input" {% if val == 'AGRICULTOR' %}checked{% endif %}>
+              </td>
+            </tr>
+            {% endwith %}
+          </tbody>
+        </table>
+        {% if form.tipo_ocupacion_sosten.errors %}<div class="text-danger small mt-1">{{ form.tipo_ocupacion_sosten.errors }}</div>{% endif %}
+      </div>
+    </div>
+
+    <!-- 3° Grupo familiar -->
+    <div class="card shadow-sm mb-3">
+      <div class="card-header bg-light">
+        <strong>3° Grupo familiar</strong>
+      </div>
+      <div class="card-body">
+        <div class="row g-3 mb-3">
+          <div class="col-auto">
+            <div class="form-check mt-2">
+              {{ form.tiene_hijos }}
+              <label class="form-check-label" for="{{ form.tiene_hijos.id_for_label }}">
+                {{ form.tiene_hijos.label }}
+              </label>
+            </div>
+          </div>
+          <div class="col-md-2">
+            <label class="form-label fw-semibold small">{{ form.cantidad_hijos.label }}</label>
+            {{ form.cantidad_hijos }}
+            {% if form.cantidad_hijos.errors %}<div class="text-danger small">{{ form.cantidad_hijos.errors }}</div>{% endif %}
+          </div>
+          <div class="col-md-4">
+            <label class="form-label fw-semibold small">{{ form.cantidad_familiares.label }}</label>
+            {{ form.cantidad_familiares }}
+            {% if form.cantidad_familiares.errors %}<div class="text-danger small">{{ form.cantidad_familiares.errors }}</div>{% endif %}
+          </div>
+        </div>
+
+        <p class="small text-muted mb-2">
+          <i class="bi bi-info-circle-fill"></i>
+          Agregá hasta 10 integrantes del grupo familiar (no incluyas tus propios datos).
+        </p>
+
+        {{ formset.management_form }}
+        <div class="table-responsive">
+          <table class="table table-bordered table-sm mb-2">
+            <thead class="table-dark">
+              <tr>
+                <th>Nombre completo</th>
+                <th style="width:130px">Parentesco</th>
+                <th style="width:70px">Edad</th>
+                <th>Ocupación</th>
+                <th>Observación</th>
+                <th style="width:50px"></th>
+              </tr>
+            </thead>
+            <tbody id="integrantes-container">
+              {% for integrante_form in formset %}
+                {% if forloop.counter0 < formset.initial_form_count %}
+                  {% include "configuracion/_integrante_fila.html" with integrante_form=integrante_form es_existente=True %}
+                {% else %}
+                  {% include "configuracion/_integrante_fila.html" with integrante_form=integrante_form es_existente=False %}
+                {% endif %}
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        <button type="button"
+                id="btn-agregar-integrante"
+                class="btn btn-sm btn-outline-primary"
+                hx-get="{% url 'configuracion:integrante_nueva_fila' %}"
+                hx-include="#id_integrantes-TOTAL_FORMS"
+                hx-target="#integrantes-container"
+                hx-swap="beforeend"
+                {% if formset.total_form_count >= 10 %}disabled{% endif %}>
+          <i class="bi bi-plus-circle"></i> Agregar integrante
+        </button>
+      </div>
+    </div>
+
+    <!-- 4° Procedencia -->
+    <div class="card shadow-sm mb-3">
+      <div class="card-header bg-light">
+        <strong>4° De la procedencia</strong>
+      </div>
+      <div class="card-body p-0">
+        <table class="table table-bordered mb-0">
+          <tr>
+            <td class="bg-light fw-semibold" style="width:30%">Lugar de procedencia</td>
+            <td>
+              {{ form.lugar_procedencia }}
+              {% if form.lugar_procedencia.errors %}<div class="text-danger small mt-1">{{ form.lugar_procedencia.errors }}</div>{% endif %}
+            </td>
+          </tr>
+        </table>
+      </div>
+    </div>
+
+    <!-- 5° Residencia -->
+    <div class="card shadow-sm mb-3">
+      <div class="card-header bg-light">
+        <strong>5° De la residencia (en donde vive)</strong>
+      </div>
+      <div class="card-body p-0">
+        <table class="table table-bordered mb-0">
+          <tr>
+            <td class="bg-light fw-semibold" style="width:20%">Lugar</td>
+            <td style="width:30%">
+              {{ form.residencia_lugar }}
+              {% if form.residencia_lugar.errors %}<div class="text-danger small mt-1">{{ form.residencia_lugar.errors }}</div>{% endif %}
+            </td>
+            <td class="bg-light fw-semibold" style="width:20%">Provincia</td>
+            <td>
+              {{ form.residencia_provincia }}
+              {% if form.residencia_provincia.errors %}<div class="text-danger small mt-1">{{ form.residencia_provincia.errors }}</div>{% endif %}
+            </td>
+          </tr>
+          <tr>
+            <td class="bg-light fw-semibold">Zona o Anillo</td>
+            <td>
+              {{ form.residencia_zona_anillo }}
+              {% if form.residencia_zona_anillo.errors %}<div class="text-danger small mt-1">{{ form.residencia_zona_anillo.errors }}</div>{% endif %}
+            </td>
+            <td class="bg-light fw-semibold">Barrio</td>
+            <td>
+              {{ form.residencia_barrio }}
+              {% if form.residencia_barrio.errors %}<div class="text-danger small mt-1">{{ form.residencia_barrio.errors }}</div>{% endif %}
+            </td>
+          </tr>
+          <tr>
+            <td class="bg-light fw-semibold">Calle</td>
+            <td colspan="3">
+              {{ form.residencia_calle }}
+              {% if form.residencia_calle.errors %}<div class="text-danger small mt-1">{{ form.residencia_calle.errors }}</div>{% endif %}
+            </td>
+          </tr>
+        </table>
+      </div>
+    </div>
+
+    <!-- 6° Tenencia de vivienda -->
+    <div class="card shadow-sm mb-3">
+      <div class="card-header bg-light">
+        <strong>6° Tenencia de vivienda</strong>
+      </div>
+      <div class="card-body">
+        <table class="table table-bordered table-sm mb-3">
+          <thead class="table-dark">
+            <tr>
+              <th>Tipo de tenencia</th>
+              <th>Adjuntar respaldo</th>
+              <th class="text-center" style="width:90px">Selección</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% with val=form.tipo_tenencia_vivienda.value %}
+            <tr>
+              <td>Herencia</td>
+              <td><small>Fotocopia simple de documento de herencia</small></td>
+              <td class="text-center">
+                <input type="radio" name="tipo_tenencia_vivienda" value="HERENCIA"
+                       class="form-check-input" {% if val == 'HERENCIA' %}checked{% endif %}>
+              </td>
+            </tr>
+            <tr>
+              <td>De los padres</td>
+              <td><small>Fotocopia simple de pago de impuesto de cualquier gestión</small></td>
+              <td class="text-center">
+                <input type="radio" name="tipo_tenencia_vivienda" value="DE_LOS_PADRES"
+                       class="form-check-input" {% if val == 'DE_LOS_PADRES' %}checked{% endif %}>
+              </td>
+            </tr>
+            <tr>
+              <td>Cedida</td>
+              <td><small>Nota del dueño de casa con su firma</small></td>
+              <td class="text-center">
+                <input type="radio" name="tipo_tenencia_vivienda" value="CEDIDA"
+                       class="form-check-input" {% if val == 'CEDIDA' %}checked{% endif %}>
+              </td>
+            </tr>
+            <tr>
+              <td>Anticrético</td>
+              <td><small>Fotocopia simple de contrato de anticresis vigente</small></td>
+              <td class="text-center">
+                <input type="radio" name="tipo_tenencia_vivienda" value="ANTICRETICO"
+                       class="form-check-input" {% if val == 'ANTICRETICO' %}checked{% endif %}>
+              </td>
+            </tr>
+            <tr>
+              <td>Alquiler</td>
+              <td><small>Fotocopia simple de respaldo de alquiler</small></td>
+              <td class="text-center">
+                <input type="radio" name="tipo_tenencia_vivienda" value="ALQUILER"
+                       class="form-check-input" {% if val == 'ALQUILER' %}checked{% endif %}>
+              </td>
+            </tr>
+            {% endwith %}
+          </tbody>
+        </table>
+        {% if form.tipo_tenencia_vivienda.errors %}<div class="text-danger small mb-2">{{ form.tipo_tenencia_vivienda.errors }}</div>{% endif %}
+        <div class="row g-2 align-items-center">
+          <div class="col-auto">
+            <label class="form-label fw-semibold small mb-0">{{ form.situacion_habitacional.label }}</label>
+          </div>
+          <div class="col-md-4">
+            {{ form.situacion_habitacional }}
+            {% if form.situacion_habitacional.errors %}<div class="text-danger small">{{ form.situacion_habitacional.errors }}</div>{% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 7° Infraestructura de la vivienda -->
+    <div class="card shadow-sm mb-3">
+      <div class="card-header bg-light">
+        <strong>7° Infraestructura de la vivienda</strong>
+      </div>
+      <div class="card-body p-0">
+        <table class="table table-bordered mb-0 text-center">
+          <thead class="table-light">
+            <tr>
+              <th>Dormitorio</th>
+              <th>Baño</th>
+              <th>Comedor</th>
+              <th>Sala</th>
+              <th>Patio</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>{{ form.dormitorios }}{% if form.dormitorios.errors %}<div class="text-danger small">{{ form.dormitorios.errors }}</div>{% endif %}</td>
+              <td>{{ form.banos }}{% if form.banos.errors %}<div class="text-danger small">{{ form.banos.errors }}</div>{% endif %}</td>
+              <td>{{ form.comedores }}{% if form.comedores.errors %}<div class="text-danger small">{{ form.comedores.errors }}</div>{% endif %}</td>
+              <td>{{ form.salas }}{% if form.salas.errors %}<div class="text-danger small">{{ form.salas.errors }}</div>{% endif %}</td>
+              <td>{{ form.patios }}{% if form.patios.errors %}<div class="text-danger small">{{ form.patios.errors }}</div>{% endif %}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- 8° Otro beneficio -->
+    <div class="card shadow-sm mb-3">
+      <div class="card-header bg-light">
+        <strong>8° ¿Tiene otro beneficio dentro de la universidad?</strong>
+      </div>
+      <div class="card-body p-0">
+        <table class="table table-bordered mb-0">
+          <tr>
+            <td class="bg-light fw-semibold" style="width:30%">Respuesta</td>
+            <td style="width:15%">
+              <div class="form-check">
+                {{ form.tiene_beca_previa }}
+                <label class="form-check-label" for="{{ form.tiene_beca_previa.id_for_label }}">Sí</label>
+              </div>
+            </td>
+            <td class="bg-light fw-semibold" style="width:15%">¿Cuál?</td>
+            <td>
+              {{ form.detalle_otro_beneficio }}
+              {% if form.detalle_otro_beneficio.errors %}<div class="text-danger small mt-1">{{ form.detalle_otro_beneficio.errors }}</div>{% endif %}
+            </td>
+          </tr>
+        </table>
+      </div>
+    </div>
+
+    <!-- 9° Discapacidad -->
+    <div class="card shadow-sm mb-3">
+      <div class="card-header bg-light">
+        <strong>9° ¿Tiene algún tipo de discapacidad?</strong>
+      </div>
+      <div class="card-body p-0">
+        <table class="table table-bordered mb-0">
+          <tr>
+            <td class="bg-light fw-semibold" style="width:30%">Respuesta</td>
+            <td style="width:15%">
+              <div class="form-check">
+                {{ form.tiene_discapacidad }}
+                <label class="form-check-label" for="{{ form.tiene_discapacidad.id_for_label }}">Sí</label>
+              </div>
+            </td>
+            <td class="bg-light fw-semibold" style="width:20%">Tipo y grado</td>
+            <td>
+              {{ form.detalle_discapacidad }}
+              {% if form.detalle_discapacidad.errors %}<div class="text-danger small mt-1">{{ form.detalle_discapacidad.errors }}</div>{% endif %}
+            </td>
+          </tr>
+        </table>
+      </div>
+    </div>
+
+    <!-- 10° Aclaración o comentario personal -->
+    <div class="card shadow-sm mb-4">
+      <div class="card-header bg-light">
+        <strong>10° Aclaración o comentario personal</strong>
+      </div>
+      <div class="card-body">
+        {{ form.observaciones }}
+        {% if form.observaciones.errors %}<div class="text-danger small mt-1">{{ form.observaciones.errors }}</div>{% endif %}
+      </div>
+    </div>
+
+    <div class="d-flex justify-content-end mb-5">
+      <button type="submit" id="btn-guardar" class="btn btn-primary btn-lg">
+        <i class="bi bi-floppy-fill me-2"></i>Guardar formulario
+      </button>
+    </div>
+
+  </form>
 </div>
+</div>
+
+{% if formulario and formulario.completado %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const form = document.getElementById('formulario-socioeconomico');
+    const btnToggle = document.getElementById('btn-toggle-edicion');
+    const btnGuardar = document.getElementById('btn-guardar');
+    const btnAgregar = document.getElementById('btn-agregar-integrante');
+    const maxIntegrantes = {{ formset.total_form_count }} >= 10;
+
+    function controles() {
+        return form.querySelectorAll('input:not([type=hidden]), select, textarea');
+    }
+
+    function modoLectura() {
+        controles().forEach(c => c.disabled = true);
+        if (btnAgregar) btnAgregar.disabled = true;
+        btnToggle.innerHTML = '<i class="bi bi-pencil-fill me-1"></i> Editar formulario';
+        btnToggle.className = 'btn btn-outline-secondary btn-sm ms-3 flex-shrink-0';
+        btnGuardar.classList.add('d-none');
+        btnToggle.dataset.modo = 'lectura';
+    }
+
+    function modoEdicion() {
+        controles().forEach(c => c.disabled = false);
+        if (btnAgregar) btnAgregar.disabled = maxIntegrantes;
+        btnToggle.innerHTML = '<i class="bi bi-lock-fill me-1"></i> Cancelar edición';
+        btnToggle.className = 'btn btn-warning btn-sm ms-3 flex-shrink-0';
+        btnGuardar.classList.remove('d-none');
+        btnToggle.dataset.modo = 'edicion';
+    }
+
+    btnToggle.addEventListener('click', function () {
+        if (this.dataset.modo === 'lectura') {
+            modoEdicion();
+        } else {
+            modoLectura();
+        }
+    });
+
+    modoLectura();
+});
+</script>
+{% endif %}
 {% endblock %}

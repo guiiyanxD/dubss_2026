@@ -1,26 +1,31 @@
-{% load crispy_forms_tags %}
-<div class="integrante-fila mb-3">
-    {{ integrante_form|crispy }}
-    <div class="d-flex justify-content-end">
+<tr class="integrante-fila">
+    {{ integrante_form.id }}
+    {{ integrante_form.DELETE }}
+    <td>{{ integrante_form.nombre_completo }}</td>
+    <td>{{ integrante_form.parentesco }}</td>
+    <td>{{ integrante_form.edad }}</td>
+    <td>{{ integrante_form.ocupacion }}</td>
+    <td>{{ integrante_form.observacion }}</td>
+    <td class="text-center">
         {% if es_existente %}
         <button type="button" class="btn btn-sm btn-outline-danger"
-                onclick="this.closest('.integrante-fila').querySelector('.campo-delete-integrante').value='on'; this.closest('.integrante-fila').classList.add('d-none');">
-            <i class="bi bi-trash"></i> Quitar
+                onclick="this.closest('tr').querySelector('.campo-delete-integrante').value='on'; this.closest('tr').classList.add('d-none');">
+            <i class="bi bi-trash"></i>
         </button>
         {% else %}
         <button type="button" class="btn btn-sm btn-outline-danger"
-                onclick="this.closest('.integrante-fila').remove();">
-            <i class="bi bi-trash"></i> Quitar
+                onclick="this.closest('tr').remove();">
+            <i class="bi bi-trash"></i>
         </button>
         {% endif %}
-    </div>
-</div>
+    </td>
+</tr>
 {% if nuevo_total_forms %}
 <input type="hidden" id="id_integrantes-TOTAL_FORMS" name="integrantes-TOTAL_FORMS"
        value="{{ nuevo_total_forms }}" hx-swap-oob="true">
 {% endif %}
 {% if deshabilitar_boton_agregar %}
-<button type="button" id="btn-agregar-integrante" class="btn btn-sm btn-outline-primary mt-2"
+<button type="button" id="btn-agregar-integrante" class="btn btn-sm btn-outline-primary"
         disabled hx-swap-oob="true">
     <i class="bi bi-plus-circle"></i> Agregar integrante (máximo alcanzado)
 </button>

@@ -38,7 +38,7 @@
     <h2>1° Datos del (la) postulante</h2>
     <table class="datos">
         <tr><td class="etiqueta">Nombre completo</td><td>{{ estudiante.get_full_name }}</td></tr>
-        <tr><td class="etiqueta">Número de registro</td><td>{{ perfil_estudiante.legajo|default:"—" }}</td></tr>
+        <tr><td class="etiqueta">Número de registro</td><td>{{ perfil_estudiante.nro_registro|default:"—" }}</td></tr>
         <tr><td class="etiqueta">Número de celular</td><td>{{ formulario.numero_celular|default:"—" }}</td></tr>
         <tr><td class="etiqueta">Teléfono de referencia</td><td>{{ formulario.telefono_referencia|default:"—" }}</td></tr>
     </table>

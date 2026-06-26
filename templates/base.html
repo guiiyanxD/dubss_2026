@@ -127,10 +127,14 @@
             <ul class="navbar-nav me-auto">
                 {% with rol=user.get_rol %}
                 {% if rol == 'Director' or user.is_superuser %}
-                <li class="nav-item">
-                    <a class="nav-link" href="{% url 'postulaciones:cola-revision' %}">
-                        <i class="bi bi-inbox-fill me-1"></i>Cola de Revisión
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">
+                        <i class="bi bi-send-fill me-1"></i>Postulaciones
                     </a>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" href="{% url 'postulaciones:cola-revision' %}"><i class="bi bi-inbox-fill me-2"></i>Cola de Revisión</a></li>
+                        <li><a class="dropdown-item" href="{% url 'postulaciones:historial' %}"><i class="bi bi-clock-history me-2"></i>Historial</a></li>
+                    </ul>
                 </li>
                 <li class="nav-item">
                     <a class="nav-link" href="{% url 'reportes:panel' %}">
@@ -167,10 +171,14 @@
                     </ul>
                 </li>
                 {% elif rol == 'Operador' %}
-                <li class="nav-item">
-                    <a class="nav-link" href="{% url 'postulaciones:cola-revision' %}">
-                        <i class="bi bi-inbox-fill me-1"></i>Cola de Revisión
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">
+                        <i class="bi bi-send-fill me-1"></i>Postulaciones
                     </a>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" href="{% url 'postulaciones:cola-revision' %}"><i class="bi bi-inbox-fill me-2"></i>Cola de Revisión</a></li>
+                        <li><a class="dropdown-item" href="{% url 'postulaciones:historial' %}"><i class="bi bi-clock-history me-2"></i>Historial</a></li>
+                    </ul>
                 </li>
                 <li class="nav-item dropdown">
                     <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">
@@ -204,15 +212,34 @@
             {% endif %}
             <ul class="navbar-nav ms-auto">
                 {% if user.is_authenticated %}
-                    <li class="nav-item">
-                        <span class="nav-link" style="color:rgba(255,255,255,.7)!important;">
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">
                             <i class="bi bi-person-circle me-1"></i>{{ user.get_full_name|default:user.email }}
-                        </span>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{% url 'account_logout' %}">
-                            <i class="bi bi-box-arrow-right me-1"></i>Cerrar sesión
                         </a>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li class="px-3 py-1">
+                                <small class="text-muted d-block">Email</small>
+                                <span class="fw-semibold">{{ user.email }}</span>
+                            </li>
+                            <li class="px-3 py-1">
+                                <small class="text-muted d-block">Rol</small>
+                                <span class="fw-semibold">{{ user.get_rol|default:"Superusuario" }}</span>
+                            </li>
+                            {% with rol=user.get_rol %}
+                            {% if rol == 'Estudiante' %}
+                            <li class="px-3 py-1">
+                                <small class="text-muted d-block">Nro. Registro</small>
+                                <span class="fw-semibold">{{ user.perfil_estudiante.nro_registro|default:"—" }}</span>
+                            </li>
+                            {% endif %}
+                            {% endwith %}
+                            <li><hr class="dropdown-divider"></li>
+                            <li>
+                                <a class="dropdown-item text-danger" href="{% url 'account_logout' %}">
+                                    <i class="bi bi-box-arrow-right me-2"></i>Cerrar sesión
+                                </a>
+                            </li>
+                        </ul>
                     </li>
                 {% else %}
                     <li class="nav-item">

@@ -1,137 +1,164 @@
-{% extends "base.html" %}
-{% load crispy_forms_tags %}
-
-{% block title %}Revisión de Postulación #{{ postulacion.pk }}{% endblock %}
-
-{% block content %}
+{% extends "base.html" %} {% load crispy_forms_tags %} {% block title %}Revisión
+de Postulación #{{ postulacion.pk }}{% endblock %} {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
-    <h2>Revisión de Postulación #{{ postulacion.pk }}</h2>
-    <a href="{% url 'postulaciones:cola-revision' %}" class="btn btn-secondary">← Cola de Revisión</a>
+  <h2>Revisión de Postulación #{{ postulacion.pk }}</h2>
+  <a href="{% url 'postulaciones:cola-revision' %}" class="btn btn-secondary"
+    >← Cola de Revisión</a
+  >
 </div>
 
 <div class="row g-4 mb-4">
-    <div class="col-md-6">
-        <div class="card shadow-sm">
-            <div class="card-header"><strong>Datos del Postulante</strong></div>
-            <div class="card-body">
-                <dl class="row mb-0">
-                    <dt class="col-sm-4">Nombre</dt>
-                    <dd class="col-sm-8">{{ postulacion.estudiante.get_full_name }}</dd>
-                    <dt class="col-sm-4">Email</dt>
-                    <dd class="col-sm-8">{{ postulacion.estudiante.email }}</dd>
-                    <dt class="col-sm-4">Convocatoria</dt>
-                    <dd class="col-sm-8">{{ postulacion.convocatoria.nombre }}</dd>
-                    <dt class="col-sm-4">Beca</dt>
-                    <dd class="col-sm-8">{{ postulacion.beca.nombre }}</dd>
-                    <dt class="col-sm-4">Estado</dt>
-                    <dd class="col-sm-8"><strong>{{ postulacion.get_estado_display }}</strong></dd>
-                </dl>
-            </div>
-        </div>
+  <div class="col-md-6">
+    <div class="card shadow-sm">
+      <div class="card-header"><strong>Datos del Postulante</strong></div>
+      <div class="card-body">
+        <dl class="row mb-0">
+          <dt class="col-sm-4">Nombre</dt>
+          <dd class="col-sm-8">{{ postulacion.estudiante.get_full_name }}</dd>
+          <dt class="col-sm-4">Email</dt>
+          <dd class="col-sm-8">{{ postulacion.estudiante.email }}</dd>
+          <dt class="col-sm-4">Convocatoria</dt>
+          <dd class="col-sm-8">{{ postulacion.convocatoria.nombre }}</dd>
+          <dt class="col-sm-4">Beca</dt>
+          <dd class="col-sm-8">{{ postulacion.beca.nombre }}</dd>
+          <dt class="col-sm-4">Estado</dt>
+          <dd class="col-sm-8">
+            <strong>{{ postulacion.get_estado_display }}</strong>
+          </dd>
+        </dl>
+      </div>
     </div>
+  </div>
 
-    <div class="col-md-6">
-        <div class="card shadow-sm">
-            <div class="card-header"><strong>Formulario Socioeconómico</strong></div>
-            <div class="card-body">
-                {% with f=postulacion.formulario %}
-                <dl class="row mb-0">
-                    <dt class="col-sm-5">Situación laboral</dt>
-                    <dd class="col-sm-7">{{ f.get_situacion_laboral_display }}</dd>
-                    <dt class="col-sm-5">Ingreso familiar</dt>
-                    <dd class="col-sm-7">${{ f.ingreso_mensual_familiar }}</dd>
-                    <dt class="col-sm-5">Miembros del hogar</dt>
-                    <dd class="col-sm-7">{{ f.cantidad_familiares }}</dd>
-                    <dt class="col-sm-5">Situación habitacional</dt>
-                    <dd class="col-sm-7">{{ f.get_situacion_habitacional_display }}</dd>
-                    <dt class="col-sm-5">Beca previa</dt>
-                    <dd class="col-sm-7">{{ f.tiene_beca_previa|yesno:"Sí,No" }}</dd>
-                    {% if f.observaciones %}
-                    <dt class="col-sm-5">Observaciones</dt>
-                    <dd class="col-sm-7">{{ f.observaciones }}</dd>
-                    {% endif %}
-                </dl>
-                {% endwith %}
-            </div>
-        </div>
+  <div class="col-md-6">
+    <div class="card shadow-sm">
+      <div class="card-header"><strong>Formulario Socioeconómico</strong></div>
+      <div class="card-body">
+        {% with f=postulacion.formulario %}
+        <dl class="row mb-0">
+          <dt class="col-sm-5">Situación laboral</dt>
+          <dd class="col-sm-7">{{ f.get_situacion_laboral_display }}</dd>
+          <dt class="col-sm-5">Ingreso familiar</dt>
+          <dd class="col-sm-7">Bs.{{ f.ingreso_mensual_familiar }}</dd>
+          <dt class="col-sm-5">Miembros del hogar</dt>
+          <dd class="col-sm-7">{{ f.cantidad_familiares }}</dd>
+          <dt class="col-sm-5">Situación habitacional</dt>
+          <dd class="col-sm-7">{{ f.get_situacion_habitacional_display }}</dd>
+          <dt class="col-sm-5">Beca previa</dt>
+          <dd class="col-sm-7">{{ f.tiene_beca_previa|yesno:"Sí,No" }}</dd>
+          {% if f.observaciones %}
+          <dt class="col-sm-5">Observaciones</dt>
+          <dd class="col-sm-7">{{ f.observaciones }}</dd>
+          {% endif %}
+        </dl>
+        {% endwith %}
+      </div>
     </div>
+  </div>
 </div>
 
 <!-- Verificación de identidad (solo para postulaciones en ENVIADA) -->
 {% if postulacion.estado == 'ENVIADA' %}
 <div class="card shadow-sm mb-4 border-primary">
-    <div class="card-header bg-primary text-white"><strong>CU18 — Verificar Identidad</strong></div>
-    <div class="card-body">
-        <form method="post" action="{% url 'postulaciones:verificar-identidad' pk=postulacion.pk %}">
-            {% csrf_token %}
-            {{ form_identidad|crispy }}
-            <button type="submit" class="btn btn-primary mt-2">Registrar verificación</button>
-        </form>
-    </div>
+  <div class="card-header bg-primary text-white">
+    <strong>Verificar Identidad</strong>
+  </div>
+  <div class="card-body">
+    <form
+      method="post"
+      action="{% url 'postulaciones:verificar-identidad' pk=postulacion.pk %}"
+    >
+      {% csrf_token %} {{ form_identidad|crispy }}
+      <button type="submit" class="btn btn-primary mt-2">
+        Registrar verificación
+      </button>
+    </form>
+  </div>
 </div>
 {% endif %}
 
 <!-- Validación/digitalización de documentos (EN_REVISION: faltan validar; APROBADA: validados, puede faltar digitalizar) -->
 {% if postulacion.estado == 'EN_REVISION' or postulacion.estado == 'APROBADA' %}
 <div class="card shadow-sm mb-4">
-    <div class="card-header"><strong>CU19 — Documentos Requeridos</strong></div>
-    <div class="card-body p-0">
-        <table class="table table-bordered mb-0">
-            <thead class="table-light">
-                <tr>
-                    <th>Documento</th>
-                    <th>Estado</th>
-                    <th>Validar</th>
-                    <th>Digitalizar (CU20)</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for doc in postulacion.documentos.all %}
-                <tr>
-                    <td>{{ doc.tipo_documento.nombre }}</td>
-                    <td>
-                        {% if doc.validado is None %}
-                            <span class="badge bg-secondary">Pendiente</span>
-                        {% elif doc.validado %}
-                            <span class="badge bg-success">Aprobado</span>
-                        {% else %}
-                            <span class="badge bg-danger">Rechazado</span>
-                        {% endif %}
-                    </td>
-                    <td>
-                        {% if doc.validado is None %}
-                        <form method="post" action="{% url 'postulaciones:validar-documento' doc_pk=doc.pk %}" class="d-flex gap-2">
-                            {% csrf_token %}
-                            <button type="submit" name="aprobar" value="1" class="btn btn-sm btn-success">Aprobar</button>
-                            <button type="submit" name="aprobar" value="0" class="btn btn-sm btn-danger">Rechazar</button>
-                        </form>
-                        {% else %}
-                            —
-                        {% endif %}
-                    </td>
-                    <td>
-                        {% if doc.validado %}
-                            {% if doc.archivo %}
-                                <a href="{{ doc.archivo.url }}" target="_blank" class="btn btn-sm btn-outline-secondary">Ver archivo</a>
-                            {% else %}
-                                <a href="{% url 'postulaciones:digitalizar' doc_pk=doc.pk %}" class="btn btn-sm btn-outline-primary">Digitalizar</a>
-                            {% endif %}
-                        {% else %}
-                            —
-                        {% endif %}
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
+  <div class="card-header"><strong>CU19 — Documentos Requeridos</strong></div>
+  <div class="card-body p-0">
+    <table class="table table-bordered mb-0">
+      <thead class="table-light">
+        <tr>
+          <th>Documento</th>
+          <th>Estado</th>
+          <th>Validar</th>
+          <th>Digitalizar (CU20)</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for doc in postulacion.documentos.all %}
+        <tr>
+          <td>{{ doc.tipo_documento.nombre }}</td>
+          <td>
+            {% if doc.validado is None %}
+            <span class="badge bg-secondary">Pendiente</span>
+            {% elif doc.validado %}
+            <span class="badge bg-success">Aprobado</span>
+            {% else %}
+            <span class="badge bg-danger">Rechazado</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if doc.validado is None %}
+            <form
+              method="post"
+              action="{% url 'postulaciones:validar-documento' doc_pk=doc.pk %}"
+              class="d-flex gap-2"
+            >
+              {% csrf_token %}
+              <button
+                type="submit"
+                name="aprobar"
+                value="1"
+                class="btn btn-sm btn-success"
+              >
+                Aprobar
+              </button>
+              <button
+                type="submit"
+                name="aprobar"
+                value="0"
+                class="btn btn-sm btn-danger"
+              >
+                Rechazar
+              </button>
+            </form>
+            {% else %} — {% endif %}
+          </td>
+          <td>
+            {% if doc.validado %} {% if doc.archivo %}
+            <a
+              href="{{ doc.archivo.url }}"
+              target="_blank"
+              class="btn btn-sm btn-outline-secondary"
+              >Ver archivo</a
+            >
+            {% else %}
+            <a
+              href="{% url 'postulaciones:digitalizar' doc_pk=doc.pk %}"
+              class="btn btn-sm btn-outline-primary"
+              >Digitalizar</a
+            >
+            {% endif %} {% else %} — {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
 </div>
 {% endif %}
 
 <!-- Observaciones de identidad (si existen) -->
 {% if postulacion.observaciones_identidad %}
 <div class="alert alert-info">
-    <strong>Observaciones de identidad:</strong> {{ postulacion.observaciones_identidad }}
+  <strong>Observaciones de identidad:</strong> {{
+  postulacion.observaciones_identidad }}
 </div>
-{% endif %}
-{% endblock %}
+{% endif %} {% endblock %}

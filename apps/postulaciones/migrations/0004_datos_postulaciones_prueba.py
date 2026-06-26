@@ -38,6 +38,7 @@ def crear_postulaciones_prueba(apps, schema_editor):
     Convocatoria = apps.get_model("convocatorias", "Convocatoria")
     Beca = apps.get_model("convocatorias", "Beca")
     Postulacion = apps.get_model("postulaciones", "Postulacion")
+    DocumentoPostulacion = apps.get_model("postulaciones", "DocumentoPostulacion")
     ContadorReferencia = apps.get_model("postulaciones", "ContadorReferencia")
 
     estudiantes = list(
@@ -82,15 +83,21 @@ def crear_postulaciones_prueba(apps, schema_editor):
         )
 
         ultimo_numero += 1
-        Postulacion.objects.create(
+        convocatoria = convocatorias_cache[nombre_convocatoria]
+        postulacion = Postulacion.objects.create(
             estudiante=estudiante,
-            convocatoria=convocatorias_cache[nombre_convocatoria],
+            convocatoria=convocatoria,
             beca=becas_cache[nombre_beca],
             formulario=formulario,
             estado="ENVIADA",
             fecha_envio=ahora,
             numero_referencia=ultimo_numero,
         )
+        for tipo_doc in convocatoria.documentos_requeridos.all():
+            DocumentoPostulacion.objects.create(
+                postulacion=postulacion,
+                tipo_documento=tipo_doc,
+            )
 
     contador, _ = ContadorReferencia.objects.get_or_create(pk=1)
     contador.ultimo_numero = max(contador.ultimo_numero, ultimo_numero)

@@ -3,6 +3,7 @@ from django.contrib.auth.decorators import login_required, user_passes_test
 from django.core.paginator import Paginator
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 
 from apps.convocatorias.models import Beca, Convocatoria
 
@@ -91,7 +92,11 @@ def detalle_postulacion_view(request, pk):
         messages.error(request, "No tenés permiso para ver esta postulación.")
         return redirect("postulaciones:lista")
 
-    return render(request, "postulaciones/detalle.html", {"postulacion": postulacion})
+    _BACK_URLS = {"historial": "postulaciones:historial"}
+    origen = request.GET.get("origen", "")
+    back_url = reverse(_BACK_URLS.get(origen, "postulaciones:lista"))
+
+    return render(request, "postulaciones/detalle.html", {"postulacion": postulacion, "back_url": back_url})
 
 
 @login_required
@@ -236,6 +241,46 @@ def validar_documento_view(request, doc_pk):
             messages.error(request, str(e))
         return redirect("postulaciones:revision", pk=documento.postulacion.pk)
     return redirect("postulaciones:cola-revision")
+
+
+@staff_required
+def historial_postulaciones_view(request):
+    estado = request.GET.get("estado", "")
+    convocatoria_id = request.GET.get("convocatoria", "")
+    beca_id = request.GET.get("beca", "")
+    busqueda = request.GET.get("q", "")
+
+    qs = services.listar_historial_postulaciones(
+        estado=estado or None,
+        convocatoria_id=convocatoria_id or None,
+        beca_id=beca_id or None,
+        busqueda=busqueda or None,
+    )
+
+    paginator = Paginator(qs, 20)
+    page_obj = paginator.get_page(request.GET.get("page", 1))
+    page_range = paginator.get_elided_page_range(page_obj.number, on_each_side=2, on_ends=1)
+
+    params = request.GET.copy()
+    params.pop("page", None)
+    query_string = f"?{params.urlencode()}&" if params else "?"
+
+    return render(
+        request,
+        "postulaciones/historial.html",
+        {
+            "page_obj": page_obj,
+            "page_range": page_range,
+            "query_string": query_string,
+            "estado": estado,
+            "convocatoria_id": convocatoria_id,
+            "beca_id": beca_id,
+            "busqueda": busqueda,
+            "estados_disponibles": Postulacion.Estado.choices,
+            "convocatorias_disponibles": Convocatoria.objects.order_by("nombre"),
+            "becas_disponibles": Beca.objects.order_by("nombre"),
+        },
+    )
 
 
 @staff_required

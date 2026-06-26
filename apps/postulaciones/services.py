@@ -268,6 +268,38 @@ def marcar_rechazadas_por_cierre(*, convocatoria):
     ).update(estado=Postulacion.Estado.RECHAZADA_NO_PRESENTACION)
 
 
+def listar_historial_postulaciones(
+    *, estado=None, convocatoria_id=None, beca_id=None, busqueda=None
+):
+    """Retorna todas las postulaciones del sistema sin restricción de estado.
+
+    Args:
+        estado: Valor de Postulacion.Estado para filtrar (opcional).
+        convocatoria_id: PK de Convocatoria (opcional).
+        beca_id: PK de Beca (opcional).
+        busqueda: String libre; busca en nombre, apellido y nro_registro (opcional).
+
+    Returns:
+        QuerySet ordenado por fecha_creacion descendente.
+    """
+    qs = Postulacion.objects.select_related(
+        "estudiante__perfil_estudiante", "convocatoria", "beca"
+    ).order_by("-fecha_creacion")
+    if estado:
+        qs = qs.filter(estado=estado)
+    if convocatoria_id:
+        qs = qs.filter(convocatoria_id=convocatoria_id)
+    if beca_id:
+        qs = qs.filter(beca_id=beca_id)
+    if busqueda:
+        qs = qs.filter(
+            Q(estudiante__first_name__icontains=busqueda)
+            | Q(estudiante__last_name__icontains=busqueda)
+            | Q(estudiante__perfil_estudiante__nro_registro__icontains=busqueda)
+        )
+    return qs
+
+
 def generar_constancia_pdf(*, postulacion):
     """Genera el PDF de la constancia del formulario socioeconómico (FORMULARIO DUBS 002).
 
