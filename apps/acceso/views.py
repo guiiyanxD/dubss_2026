@@ -34,6 +34,7 @@ def registro_estudiante_view(request):
                 nro_registro=form.cleaned_data["nro_registro"],
                 carrera=form.cleaned_data["carrera"],
                 anio_ingreso=form.cleaned_data["anio_ingreso"],
+                fecha_nacimiento=form.cleaned_data["fecha_nacimiento"],
             )
             login(request, usuario, backend="django.contrib.auth.backends.ModelBackend")
             messages.success(request, "¡Registro exitoso! Bienvenido al Sistema de Becas.")

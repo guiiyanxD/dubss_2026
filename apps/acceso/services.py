@@ -11,7 +11,7 @@ from .models import PerfilEstudiante, Usuario
 
 @transaction.atomic
 def autorregistrar_estudiante(
-    *, email, password1, password2, first_name, last_name, nro_registro, carrera, anio_ingreso
+    *, email, password1, password2, first_name, last_name, nro_registro, carrera, anio_ingreso, fecha_nacimiento
 ):
     """Registra un nuevo estudiante con su perfil académico básico.
 
@@ -24,6 +24,7 @@ def autorregistrar_estudiante(
         nro_registro: Número de registro universitario único.
         carrera: Nombre de la carrera.
         anio_ingreso: Año de ingreso a la universidad.
+        fecha_nacimiento: Fecha de nacimiento (18–60 años).
 
     Returns:
         El Usuario recién creado con perfil de estudiante y grupo asignado.
@@ -54,6 +55,7 @@ def autorregistrar_estudiante(
         nro_registro=nro_registro,
         carrera=carrera,
         anio_ingreso=anio_ingreso,
+        fecha_nacimiento=fecha_nacimiento,
     )
 
     grupo_estudiante = Group.objects.get(name="Estudiante")

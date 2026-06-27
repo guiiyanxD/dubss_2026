@@ -19,6 +19,11 @@ class RegistroEstudianteForm(forms.Form):
             MaxValueValidator(datetime.date.today().year),
         ],
     )
+    fecha_nacimiento = forms.DateField(
+        label="Fecha de nacimiento",
+        widget=forms.DateInput(attrs={"type": "date"}),
+        input_formats=["%Y-%m-%d"],
+    )
     acepta_terminos = forms.BooleanField(
         label="He leído y acepto la política de privacidad y los términos y condiciones.",
         required=True,
@@ -27,3 +32,13 @@ class RegistroEstudianteForm(forms.Form):
             "condiciones para poder registrarte."
         },
     )
+
+    def clean_fecha_nacimiento(self):
+        fn = self.cleaned_data["fecha_nacimiento"]
+        hoy = datetime.date.today()
+        edad = hoy.year - fn.year - ((hoy.month, hoy.day) < (fn.month, fn.day))
+        if edad < 18:
+            raise forms.ValidationError("Debés tener al menos 18 años para registrarte.")
+        if edad > 60:
+            raise forms.ValidationError("La edad máxima permitida para el registro es de 60 años.")
+        return fn

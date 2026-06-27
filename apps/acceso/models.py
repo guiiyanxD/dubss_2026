@@ -1,3 +1,5 @@
+from datetime import date
+
 from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.db import models
 
@@ -61,6 +63,7 @@ class PerfilEstudiante(models.Model):
     nro_registro = models.CharField("Nro. Registro", max_length=20, unique=True)
     carrera = models.CharField("carrera", max_length=150)
     anio_ingreso = models.PositiveSmallIntegerField("año de ingreso")
+    fecha_nacimiento = models.DateField("fecha de nacimiento")
 
     class Meta:
         verbose_name = "perfil de estudiante"
@@ -68,3 +71,9 @@ class PerfilEstudiante(models.Model):
 
     def __str__(self):
         return f"{self.usuario.email} — {self.nro_registro}"
+
+    def get_edad(self):
+        """Retorna la edad en años cumplidos."""
+        hoy = date.today()
+        fn = self.fecha_nacimiento
+        return hoy.year - fn.year - ((hoy.month, hoy.day) < (fn.month, fn.day))

@@ -1,3 +1,5 @@
+import datetime
+
 from django.contrib.auth.hashers import make_password
 from django.db import migrations
 
@@ -61,12 +63,17 @@ def crear_estudiantes(apps, schema_editor):
         # nro_registro: 9 dígitos, los primeros 4 son el año de ingreso (dato público);
         # los 5 restantes son un secuencial sin patrón conocido fuera de la universidad.
         nro_registro = f"{anio_ingreso}{num_global:05d}"
+        # Fechas de nacimiento: ciclo de 43 años (1966–2008) → edades 18–60 al 2026
+        anio_nac = 1966 + (idx % 43)
+        mes_nac = 1 + (idx % 12)
+        dia_nac = 1 + (idx % 28)
         perfiles.append(
             PerfilEstudiante(
                 usuario=usuario,
                 nro_registro=nro_registro,
                 carrera=CARRERAS[idx % len(CARRERAS)],
                 anio_ingreso=anio_ingreso,
+                fecha_nacimiento=datetime.date(anio_nac, mes_nac, dia_nac),
             )
         )
 

@@ -40,6 +40,6 @@ class UsuarioAdmin(UserAdmin):
 
 @admin.register(PerfilEstudiante)
 class PerfilEstudianteAdmin(admin.ModelAdmin):
-    list_display = ["usuario", "nro_registro", "carrera", "anio_ingreso"]
+    list_display = ["usuario", "nro_registro", "carrera", "anio_ingreso", "fecha_nacimiento"]
     search_fields = ["usuario__email", "nro_registro", "carrera"]
     raw_id_fields = ["usuario"]

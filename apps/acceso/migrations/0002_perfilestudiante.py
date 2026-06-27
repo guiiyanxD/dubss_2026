@@ -26,6 +26,7 @@ class Migration(migrations.Migration):
                 ),
                 ("carrera", models.CharField(max_length=150, verbose_name="carrera")),
                 ("anio_ingreso", models.PositiveSmallIntegerField(verbose_name="año de ingreso")),
+                ("fecha_nacimiento", models.DateField(verbose_name="fecha de nacimiento")),
                 (
                     "usuario",
                     models.OneToOneField(

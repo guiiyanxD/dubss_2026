@@ -53,6 +53,12 @@
             <td>{{ request.user.perfil_estudiante.nro_registro|default:"—" }}</td>
           </tr>
           <tr>
+            <td class="bg-light fw-semibold">Fecha de nacimiento</td>
+            <td>{{ request.user.perfil_estudiante.fecha_nacimiento|date:"d/m/Y"|default:"—" }}</td>
+            <td class="bg-light fw-semibold">Edad</td>
+            <td>{{ request.user.perfil_estudiante.get_edad|default:"—" }} años</td>
+          </tr>
+          <tr>
             <td class="bg-light fw-semibold">Número de celular</td>
             <td>
               {{ form.numero_celular }}
