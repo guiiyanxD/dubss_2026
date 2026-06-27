@@ -163,11 +163,13 @@ def listar_convocatorias(*, para_estudiante=False, estado=None, busqueda=None):
 
 def _pesos_default():
     return {
-        "peso_ingreso": 40,
-        "peso_desempleo": 20,
-        "peso_familiares": 20,
-        "peso_no_propietario": 10,
-        "peso_sin_beca_previa": 10,
+        "peso_dependencia_economica": 30,
+        "peso_grupo_familiar": 20,
+        "peso_procedencia": 5,
+        "peso_tenencia_vivienda": 15,
+        "peso_infraestructura": 15,
+        "peso_otro_beneficio": 10,
+        "peso_discapacidad": 5,
     }
 
 
@@ -176,8 +178,9 @@ def crear_beca(*, nombre, descripcion="", **pesos):
     """Crea un tipo de beca.
 
     Args:
-        pesos: peso_ingreso/peso_desempleo/peso_familiares/peso_no_propietario/
-            peso_sin_beca_previa (CU15); por defecto reproducen la fórmula original.
+        pesos: peso_dependencia_economica/peso_grupo_familiar/peso_procedencia/
+            peso_tenencia_vivienda/peso_infraestructura/peso_otro_beneficio/
+            peso_discapacidad (CU15); por defecto usan los valores estándar (suman 100).
 
     Raises:
         NombreDuplicadoError: Si ya existe una beca con ese nombre.
@@ -200,8 +203,9 @@ def editar_beca(*, beca, nombre, descripcion, activa, **pesos):
     """Actualiza los datos de una beca existente.
 
     Args:
-        pesos: peso_ingreso/peso_desempleo/peso_familiares/peso_no_propietario/
-            peso_sin_beca_previa (CU15); si no se pasan, se conservan los actuales.
+        pesos: peso_dependencia_economica/peso_grupo_familiar/peso_procedencia/
+            peso_tenencia_vivienda/peso_infraestructura/peso_otro_beneficio/
+            peso_discapacidad (CU15); si no se pasan, se conservan los actuales.
 
     Raises:
         NombreDuplicadoError: Si el nuevo nombre ya está en uso por otra beca.

@@ -12,7 +12,7 @@ class UsuarioAdmin(UserAdmin):
     search_fields = ["email", "first_name", "last_name"]
     fieldsets = (
         (None, {"fields": ("email", "password")}),
-        (_("Información personal"), {"fields": ("first_name", "last_name")}),
+        (_("Información personal"), {"fields": ("first_name", "last_name", "cargo", "departamento")}),
         (
             _("Permisos"),
             {

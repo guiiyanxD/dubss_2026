@@ -1,5 +1,4 @@
 import datetime
-from decimal import Decimal
 
 import pytest
 from django.contrib.auth.models import Group
@@ -37,10 +36,7 @@ def operador(db):
 def formulario(db, estudiante):
     return FormularioSocioeconomico.objects.create(
         usuario=estudiante,
-        situacion_laboral=FormularioSocioeconomico.SituacionLaboral.EMPLEADO,
-        ingreso_mensual_familiar=Decimal("40000"),
         cantidad_familiares=3,
-        situacion_habitacional=FormularioSocioeconomico.SituacionHabitacional.PROPIETARIO,
         tiene_beca_previa=False,
         completado=True,
     )

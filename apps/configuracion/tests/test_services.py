@@ -1,8 +1,13 @@
-from decimal import Decimal
-
 import pytest
 
-from apps.configuracion.models import FormularioSocioeconomico, IntegranteFamiliar
+from apps.configuracion.models import (
+    FormularioSocioeconomico,
+    IntegranteFamiliar,
+    OpcionDependencia,
+    RangoIngreso,
+    TipoOcupacionSosten,
+    TipoTenenciaVivienda,
+)
 from apps.configuracion.services import guardar_formulario, guardar_integrantes_familiares
 
 
@@ -22,71 +27,61 @@ def estudiante(db):
 def test_guardar_formulario_crea_nuevo(estudiante):
     formulario = guardar_formulario(
         estudiante=estudiante,
-        situacion_laboral=FormularioSocioeconomico.SituacionLaboral.EMPLEADO,
-        ingreso_mensual_familiar=Decimal("50000.00"),
         cantidad_familiares=3,
-        situacion_habitacional=FormularioSocioeconomico.SituacionHabitacional.PROPIETARIO,
         tiene_beca_previa=False,
     )
 
     assert formulario.pk is not None
     assert formulario.completado is True
     assert formulario.usuario == estudiante
-    assert formulario.ingreso_mensual_familiar == Decimal("50000.00")
 
 
 @pytest.mark.django_db
 def test_guardar_formulario_actualiza_existente(estudiante):
     guardar_formulario(
         estudiante=estudiante,
-        situacion_laboral=FormularioSocioeconomico.SituacionLaboral.EMPLEADO,
-        ingreso_mensual_familiar=Decimal("50000.00"),
         cantidad_familiares=3,
-        situacion_habitacional=FormularioSocioeconomico.SituacionHabitacional.PROPIETARIO,
         tiene_beca_previa=False,
     )
     formulario = guardar_formulario(
         estudiante=estudiante,
-        situacion_laboral=FormularioSocioeconomico.SituacionLaboral.DESEMPLEADO,
-        ingreso_mensual_familiar=Decimal("20000.00"),
         cantidad_familiares=2,
-        situacion_habitacional=FormularioSocioeconomico.SituacionHabitacional.ALQUILANDO,
         tiene_beca_previa=True,
     )
 
     assert FormularioSocioeconomico.objects.filter(usuario=estudiante).count() == 1
-    assert formulario.situacion_laboral == FormularioSocioeconomico.SituacionLaboral.DESEMPLEADO
-    assert formulario.ingreso_mensual_familiar == Decimal("20000.00")
+    assert formulario.cantidad_familiares == 2
+    assert formulario.tiene_beca_previa is True
 
 
 @pytest.mark.django_db
-def test_guardar_formulario_con_campos_dubs002(estudiante):
+def test_guardar_formulario_con_campos_fk(estudiante):
+    dep = OpcionDependencia.objects.create(nombre="Ambos padres (test)", valor_puntaje=50)
+    ocup = TipoOcupacionSosten.objects.create(nombre="Asalariado formal (test)", valor_puntaje=40)
+    ten = TipoTenenciaVivienda.objects.create(nombre="Alquiler (test)", valor_puntaje=100)
+    rng = RangoIngreso.objects.create(nombre="Hasta Bs. 2.500 (test)", valor_puntaje=100)
+
     formulario = guardar_formulario(
         estudiante=estudiante,
-        situacion_laboral=FormularioSocioeconomico.SituacionLaboral.EMPLEADO,
-        ingreso_mensual_familiar=Decimal("3000"),
         cantidad_familiares=3,
-        situacion_habitacional=FormularioSocioeconomico.SituacionHabitacional.ALQUILANDO,
         tiene_beca_previa=False,
         numero_celular="70000000",
-        dependencia_economica=FormularioSocioeconomico.DependenciaEconomica.AMBOS_PADRES,
-        tipo_ocupacion_sosten=FormularioSocioeconomico.TipoOcupacionSosten.COMERCIANTE_MINORISTA,
+        dependencia_economica=dep,
+        tipo_ocupacion_sosten=ocup,
+        tipo_tenencia_vivienda=ten,
+        rango_ingreso=rng,
         tiene_hijos=False,
         residencia_lugar="Santa Cruz",
-        tipo_tenencia_vivienda=FormularioSocioeconomico.TipoTenenciaVivienda.DE_LOS_PADRES,
         dormitorios=5,
         banos=2,
         tiene_discapacidad=False,
     )
 
     assert formulario.numero_celular == "70000000"
-    assert (
-        formulario.dependencia_economica
-        == FormularioSocioeconomico.DependenciaEconomica.AMBOS_PADRES
-    )
-    assert formulario.tipo_ocupacion_sosten == (
-        FormularioSocioeconomico.TipoOcupacionSosten.COMERCIANTE_MINORISTA
-    )
+    assert formulario.dependencia_economica == dep
+    assert formulario.tipo_ocupacion_sosten == ocup
+    assert formulario.tipo_tenencia_vivienda == ten
+    assert formulario.rango_ingreso == rng
     assert formulario.dormitorios == 5
 
 
@@ -94,10 +89,7 @@ def test_guardar_formulario_con_campos_dubs002(estudiante):
 def test_guardar_integrantes_familiares_reemplaza_filas(estudiante):
     formulario = guardar_formulario(
         estudiante=estudiante,
-        situacion_laboral=FormularioSocioeconomico.SituacionLaboral.EMPLEADO,
-        ingreso_mensual_familiar=Decimal("3000"),
         cantidad_familiares=3,
-        situacion_habitacional=FormularioSocioeconomico.SituacionHabitacional.PROPIETARIO,
         tiene_beca_previa=False,
     )
 
@@ -106,14 +98,14 @@ def test_guardar_integrantes_familiares_reemplaza_filas(estudiante):
         integrantes=[
             {
                 "nombre_completo": "María Luz Vásquez",
-                "parentesco": "Madre",
+                "parentesco": "MADRE",
                 "edad": 47,
                 "ocupacion": "Comerciante",
                 "observacion": "",
             },
             {
                 "nombre_completo": "Gerardo Brun",
-                "parentesco": "Padre",
+                "parentesco": "PADRE",
                 "edad": 52,
                 "ocupacion": "Comerciante",
                 "observacion": "",
@@ -127,7 +119,7 @@ def test_guardar_integrantes_familiares_reemplaza_filas(estudiante):
         integrantes=[
             {
                 "nombre_completo": "Raquel Brun",
-                "parentesco": "Hermana",
+                "parentesco": "HERMANA",
                 "edad": 21,
                 "ocupacion": "Estudiante",
                 "observacion": "",

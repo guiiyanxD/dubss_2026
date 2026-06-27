@@ -16,12 +16,67 @@ from . import charts, charts_matplotlib, llm_client, llm_tools, selectors
 from .models import Conversacion, MensajeChat, ResumenIA
 
 
+def _max_puntaje_catalogo(modelo):
+    """Retorna el máximo valor_puntaje activo del catálogo dado, o 1 si no hay datos."""
+    from django.db.models import Max
+
+    resultado = modelo.objects.filter(activo=True).aggregate(maximo=Max("valor_puntaje"))
+    return resultado["maximo"] or 1
+
+
+def _lookup_rango(modelo, valor):
+    """Busca el rango activo que contiene 'valor'. Retorna valor_puntaje o 0 si no hay coincidencia."""
+    from django.db.models import Q
+
+    rango = (
+        modelo.objects.filter(activo=True)
+        .filter(
+            Q(cantidad_minima__lte=valor) if hasattr(modelo._meta.get_field("cantidad_minima"), "name") else Q(total_minimo__lte=valor),
+        )
+        .filter(
+            Q(cantidad_maxima__isnull=True) | Q(cantidad_maxima__gte=valor)
+            if hasattr(modelo._meta.get_field("cantidad_minima" if hasattr(modelo, "cantidad_minima") else "total_minimo"), "name")
+            else Q(total_maximo__isnull=True) | Q(total_maximo__gte=valor)
+        )
+        .first()
+    )
+    return rango.valor_puntaje if rango else 0
+
+
+def _lookup_rango_grupo_familiar(valor):
+    from django.db.models import Q
+
+    from apps.configuracion.models import RangoGrupoFamiliar
+
+    rango = RangoGrupoFamiliar.objects.filter(activo=True).filter(
+        cantidad_minima__lte=valor
+    ).filter(
+        Q(cantidad_maxima__isnull=True) | Q(cantidad_maxima__gte=valor)
+    ).first()
+    return rango.valor_puntaje if rango else 0
+
+
+def _lookup_rango_infraestructura(total_ambientes):
+    from django.db.models import Q
+
+    from apps.configuracion.models import RangoInfraestructura
+
+    rango = RangoInfraestructura.objects.filter(activo=True).filter(
+        total_minimo__lte=total_ambientes
+    ).filter(
+        Q(total_maximo__isnull=True) | Q(total_maximo__gte=total_ambientes)
+    ).first()
+    return rango.valor_puntaje if rango else 0
+
+
 def procesar_formularios_socioeconomicos(*, convocatoria):
     """CU23 — Calcula el puntaje socioeconómico para postulaciones APROBADAS.
 
-    Usa Pandas para normalizar y ponderar los factores socioeconómicos. Los pesos de
-    cada factor se toman de la Beca de cada postulación (CU15 — configurables por
-    Beca, ver `apps.convocatorias.models.Beca`), no de un valor global único.
+    Usa los catálogos configurables del Director (valor_puntaje por opción) y los pesos
+    por sección de cada Beca (CU15). Fórmula por sección:
+        puntaje_seccion = (valor_opcion / max_catalogo) × peso_seccion
+    Puntaje final = suma de todas las secciones (máximo teórico = 100).
+
     Actualiza cada Postulacion con su puntaje y la marca como PROCESADA.
 
     Args:
@@ -32,48 +87,92 @@ def procesar_formularios_socioeconomicos(*, convocatoria):
     """
     import pandas as pd
 
+    from apps.configuracion.models import (
+        OpcionDependencia,
+        OpcionDiscapacidad,
+        OpcionOtroBeneficio,
+        RangoGrupoFamiliar,
+        RangoInfraestructura,
+        RangoIngreso,
+        TipoOcupacionSosten,
+        TipoTenenciaVivienda,
+    )
+
     postulaciones = list(
         Postulacion.objects.filter(
             convocatoria=convocatoria,
             estado=Postulacion.Estado.APROBADA,
-        ).select_related("formulario", "beca")
+        ).select_related(
+            "formulario",
+            "formulario__dependencia_economica",
+            "formulario__tipo_ocupacion_sosten",
+            "formulario__rango_ingreso",
+            "formulario__tipo_tenencia_vivienda",
+            "beca",
+        )
     )
 
     if not postulaciones:
         return 0
 
-    data = [
-        {
-            "id": p.pk,
-            "ingreso": float(p.formulario.ingreso_mensual_familiar),
-            "familiares": p.formulario.cantidad_familiares,
-            "desempleado": p.formulario.situacion_laboral == "DESEMPLEADO",
-            "no_propietario": p.formulario.situacion_habitacional != "PROPIETARIO",
-            "sin_beca_previa": not p.formulario.tiene_beca_previa,
-            "peso_ingreso": p.beca.peso_ingreso,
-            "peso_desempleo": p.beca.peso_desempleo,
-            "peso_familiares": p.beca.peso_familiares,
-            "peso_no_propietario": p.beca.peso_no_propietario,
-            "peso_sin_beca_previa": p.beca.peso_sin_beca_previa,
-        }
-        for p in postulaciones
-    ]
+    # Máximos de cada catálogo (calculados una sola vez)
+    max_dep = _max_puntaje_catalogo(OpcionDependencia)
+    max_ocup = _max_puntaje_catalogo(TipoOcupacionSosten)
+    max_ing = _max_puntaje_catalogo(RangoIngreso)
+    max_grp = _max_puntaje_catalogo(RangoGrupoFamiliar)
+    max_ten = _max_puntaje_catalogo(TipoTenenciaVivienda)
+    max_inf = _max_puntaje_catalogo(RangoInfraestructura)
+    max_ben = _max_puntaje_catalogo(OpcionOtroBeneficio)
+    max_dis = _max_puntaje_catalogo(OpcionDiscapacidad)
+
+    # Opciones booleanas (Sí/No) para secciones 8° y 9°
+    beneficio_si = OpcionOtroBeneficio.objects.filter(activo=True, nombre="Sí").first()
+    beneficio_no = OpcionOtroBeneficio.objects.filter(activo=True, nombre="No").first()
+    discapacidad_si = OpcionDiscapacidad.objects.filter(activo=True, nombre="Sí").first()
+    discapacidad_no = OpcionDiscapacidad.objects.filter(activo=True, nombre="No").first()
+
+    def _v(opcion_fk):
+        return opcion_fk.valor_puntaje if opcion_fk else 0
+
+    def _score_beneficio(tiene_beca):
+        opcion = beneficio_si if tiene_beca else beneficio_no
+        return _v(opcion)
+
+    def _score_discapacidad(tiene_disc):
+        opcion = discapacidad_si if tiene_disc else discapacidad_no
+        return _v(opcion)
+
+    data = []
+    for p in postulaciones:
+        f = p.formulario
+        b = p.beca
+
+        total_ambientes = (f.dormitorios or 0) + (f.banos or 0) + (f.comedores or 0) + (f.salas or 0) + (f.patios or 0)
+
+        v_dep = _v(f.dependencia_economica)
+        v_ocup = _v(f.tipo_ocupacion_sosten)
+        v_ing = _v(f.rango_ingreso)
+        score_dep = ((v_dep / max_dep) + (v_ocup / max_ocup) + (v_ing / max_ing)) / 3
+
+        v_grp = _lookup_rango_grupo_familiar(f.cantidad_familiares)
+        v_ten = _v(f.tipo_tenencia_vivienda)
+        v_inf = _lookup_rango_infraestructura(total_ambientes)
+        v_ben = _score_beneficio(f.tiene_beca_previa)
+        v_dis = _score_discapacidad(f.tiene_discapacidad)
+        score_proc = 100 if f.lugar_procedencia else 0
+
+        puntaje = (
+            score_dep * b.peso_dependencia_economica
+            + (v_grp / max_grp) * b.peso_grupo_familiar
+            + (score_proc / 100) * b.peso_procedencia
+            + (v_ten / max_ten) * b.peso_tenencia_vivienda
+            + (v_inf / max_inf) * b.peso_infraestructura
+            + (v_ben / max_ben) * b.peso_otro_beneficio
+            + (v_dis / max_dis) * b.peso_discapacidad
+        )
+        data.append({"id": p.pk, "puntaje": round(puntaje, 2)})
 
     df = pd.DataFrame(data)
-
-    ingreso_max = df["ingreso"].max()
-    familiares_max = df["familiares"].max()
-
-    df["ingreso_norm"] = df["ingreso"] / ingreso_max if ingreso_max > 0 else 0.0
-    df["familiares_norm"] = df["familiares"] / familiares_max if familiares_max > 0 else 0.0
-
-    df["puntaje"] = (
-        (1 - df["ingreso_norm"]) * df["peso_ingreso"]
-        + df["desempleado"].astype(int) * df["peso_desempleo"]
-        + df["familiares_norm"] * df["peso_familiares"]
-        + df["no_propietario"].astype(int) * df["peso_no_propietario"]
-        + df["sin_beca_previa"].astype(int) * df["peso_sin_beca_previa"]
-    ).round(2)
 
     for _, row in df.iterrows():
         Postulacion.objects.filter(pk=int(row["id"])).update(
@@ -329,8 +428,6 @@ def construir_contexto_dashboard(*, convocatoria=None, fecha_desde=None, fecha_h
                 **selectors.distribucion_choices(campo, convocatoria=convocatoria), titulo=titulo
             )
             for campo, titulo in [
-                ("situacion_laboral", "Situación laboral"),
-                ("situacion_habitacional", "Situación habitacional"),
                 ("dependencia_economica", "Dependencia económica"),
                 ("tipo_tenencia_vivienda", "Tenencia de vivienda"),
             ]

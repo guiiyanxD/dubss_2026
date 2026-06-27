@@ -11,35 +11,51 @@ class Migration(migrations.Migration):
     operations = [
         migrations.AddField(
             model_name="beca",
-            name="peso_desempleo",
-            field=models.PositiveSmallIntegerField(default=20, verbose_name="peso: desempleo (%)"),
-        ),
-        migrations.AddField(
-            model_name="beca",
-            name="peso_familiares",
+            name="peso_dependencia_economica",
             field=models.PositiveSmallIntegerField(
-                default=20, verbose_name="peso: cantidad de familiares (%)"
+                default=30, verbose_name="peso: dependencia económica (%)"
             ),
         ),
         migrations.AddField(
             model_name="beca",
-            name="peso_ingreso",
+            name="peso_grupo_familiar",
             field=models.PositiveSmallIntegerField(
-                default=40, verbose_name="peso: ingreso familiar (%)"
+                default=20, verbose_name="peso: grupo familiar (%)"
             ),
         ),
         migrations.AddField(
             model_name="beca",
-            name="peso_no_propietario",
+            name="peso_procedencia",
             field=models.PositiveSmallIntegerField(
-                default=10, verbose_name="peso: no propietario de vivienda (%)"
+                default=5, verbose_name="peso: procedencia (%)"
             ),
         ),
         migrations.AddField(
             model_name="beca",
-            name="peso_sin_beca_previa",
+            name="peso_tenencia_vivienda",
             field=models.PositiveSmallIntegerField(
-                default=10, verbose_name="peso: sin beca previa (%)"
+                default=15, verbose_name="peso: tenencia de vivienda (%)"
+            ),
+        ),
+        migrations.AddField(
+            model_name="beca",
+            name="peso_infraestructura",
+            field=models.PositiveSmallIntegerField(
+                default=15, verbose_name="peso: infraestructura (%)"
+            ),
+        ),
+        migrations.AddField(
+            model_name="beca",
+            name="peso_otro_beneficio",
+            field=models.PositiveSmallIntegerField(
+                default=10, verbose_name="peso: otro beneficio (%)"
+            ),
+        ),
+        migrations.AddField(
+            model_name="beca",
+            name="peso_discapacidad",
+            field=models.PositiveSmallIntegerField(
+                default=5, verbose_name="peso: discapacidad (%)"
             ),
         ),
     ]

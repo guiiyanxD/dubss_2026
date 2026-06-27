@@ -5,6 +5,7 @@ from . import views
 app_name = "configuracion"
 
 urlpatterns = [
+    path("catalogos/", views.catalogos_socioeconomicos_view, name="catalogos"),
     path("formulario/", views.formulario_view, name="formulario"),
     path(
         "formulario/integrantes/nueva-fila/",

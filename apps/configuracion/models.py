@@ -1,41 +1,173 @@
 from django.db import models
 
+# ---------------------------------------------------------------------------
+# Catálogos configurables por el Director (opciones y rangos de scoring)
+# ---------------------------------------------------------------------------
+
+
+class OpcionDependencia(models.Model):
+    """Catálogo: opciones para '¿De quién depende usted?' (sección 2a°)."""
+
+    nombre = models.CharField("nombre", max_length=150, unique=True)
+    valor_puntaje = models.PositiveSmallIntegerField("valor de puntaje", default=0)
+    activo = models.BooleanField("activo", default=True)
+
+    class Meta:
+        verbose_name = "opción de dependencia económica"
+        verbose_name_plural = "opciones de dependencia económica"
+        ordering = ["nombre"]
+
+    def __str__(self):
+        return self.nombre
+
+
+class TipoOcupacionSosten(models.Model):
+    """Catálogo: ocupaciones del sostén económico (sección 2b°)."""
+
+    nombre = models.CharField("nombre", max_length=150, unique=True)
+    documento_adjuntar = models.CharField(
+        "documento a adjuntar", max_length=200, blank=True,
+        help_text="Documento recomendado para acreditar esta ocupación."
+    )
+    valor_puntaje = models.PositiveSmallIntegerField("valor de puntaje", default=0)
+    activo = models.BooleanField("activo", default=True)
+
+    class Meta:
+        verbose_name = "tipo de ocupación del sostén"
+        verbose_name_plural = "tipos de ocupación del sostén"
+        ordering = ["nombre"]
+
+    def __str__(self):
+        return self.nombre
+
+
+class RangoIngreso(models.Model):
+    """Catálogo: rangos de ingreso mensual familiar (sección 2c°)."""
+
+    nombre = models.CharField("nombre", max_length=150, unique=True)
+    monto_minimo = models.DecimalField(
+        "monto mínimo (Bs.)", max_digits=12, decimal_places=2, null=True, blank=True,
+        help_text="Dejar vacío para indicar 'sin límite inferior'."
+    )
+    monto_maximo = models.DecimalField(
+        "monto máximo (Bs.)", max_digits=12, decimal_places=2, null=True, blank=True,
+        help_text="Dejar vacío para indicar 'sin límite superior'."
+    )
+    valor_puntaje = models.PositiveSmallIntegerField("valor de puntaje", default=0)
+    activo = models.BooleanField("activo", default=True)
+
+    class Meta:
+        verbose_name = "rango de ingreso familiar"
+        verbose_name_plural = "rangos de ingreso familiar"
+        ordering = ["monto_minimo"]
+
+    def __str__(self):
+        return self.nombre
+
+
+class RangoGrupoFamiliar(models.Model):
+    """Catálogo: rangos de cantidad de integrantes del grupo familiar (sección 3°)."""
+
+    nombre = models.CharField("nombre", max_length=150, unique=True)
+    cantidad_minima = models.PositiveSmallIntegerField("cantidad mínima")
+    cantidad_maxima = models.PositiveSmallIntegerField(
+        "cantidad máxima", null=True, blank=True,
+        help_text="Dejar vacío para indicar 'sin límite superior'."
+    )
+    valor_puntaje = models.PositiveSmallIntegerField("valor de puntaje", default=0)
+    activo = models.BooleanField("activo", default=True)
+
+    class Meta:
+        verbose_name = "rango de grupo familiar"
+        verbose_name_plural = "rangos de grupo familiar"
+        ordering = ["cantidad_minima"]
+
+    def __str__(self):
+        return self.nombre
+
+
+class TipoTenenciaVivienda(models.Model):
+    """Catálogo: tipos de tenencia de la vivienda (sección 6°)."""
+
+    nombre = models.CharField("nombre", max_length=150, unique=True)
+    documento_adjuntar = models.CharField(
+        "documento a adjuntar", max_length=200, blank=True,
+        help_text="Documento recomendado para acreditar este tipo de tenencia."
+    )
+    valor_puntaje = models.PositiveSmallIntegerField("valor de puntaje", default=0)
+    activo = models.BooleanField("activo", default=True)
+
+    class Meta:
+        verbose_name = "tipo de tenencia de vivienda"
+        verbose_name_plural = "tipos de tenencia de vivienda"
+        ordering = ["nombre"]
+
+    def __str__(self):
+        return self.nombre
+
+
+class RangoInfraestructura(models.Model):
+    """Catálogo: rangos de ambientes totales de la vivienda (sección 7°).
+
+    El scoring usa la suma de dormitorios + baños + comedores + salas + patios.
+    """
+
+    nombre = models.CharField("nombre", max_length=150, unique=True)
+    total_minimo = models.PositiveSmallIntegerField("total mínimo de ambientes")
+    total_maximo = models.PositiveSmallIntegerField(
+        "total máximo de ambientes", null=True, blank=True,
+        help_text="Dejar vacío para indicar 'sin límite superior'."
+    )
+    valor_puntaje = models.PositiveSmallIntegerField("valor de puntaje", default=0)
+    activo = models.BooleanField("activo", default=True)
+
+    class Meta:
+        verbose_name = "rango de infraestructura"
+        verbose_name_plural = "rangos de infraestructura"
+        ordering = ["total_minimo"]
+
+    def __str__(self):
+        return self.nombre
+
+
+class OpcionOtroBeneficio(models.Model):
+    """Catálogo: opciones para '¿Posee otro beneficio universitario?' (sección 8°)."""
+
+    nombre = models.CharField("nombre", max_length=150, unique=True)
+    valor_puntaje = models.PositiveSmallIntegerField("valor de puntaje", default=0)
+    activo = models.BooleanField("activo", default=True)
+
+    class Meta:
+        verbose_name = "opción de otro beneficio"
+        verbose_name_plural = "opciones de otro beneficio"
+        ordering = ["nombre"]
+
+    def __str__(self):
+        return self.nombre
+
+
+class OpcionDiscapacidad(models.Model):
+    """Catálogo: opciones para '¿Tiene algún tipo de discapacidad?' (sección 9°)."""
+
+    nombre = models.CharField("nombre", max_length=150, unique=True)
+    valor_puntaje = models.PositiveSmallIntegerField("valor de puntaje", default=0)
+    activo = models.BooleanField("activo", default=True)
+
+    class Meta:
+        verbose_name = "opción de discapacidad"
+        verbose_name_plural = "opciones de discapacidad"
+        ordering = ["nombre"]
+
+    def __str__(self):
+        return self.nombre
+
+
+# ---------------------------------------------------------------------------
+# Formulario socioeconómico
+# ---------------------------------------------------------------------------
+
 
 class FormularioSocioeconomico(models.Model):
-    class SituacionLaboral(models.TextChoices):
-        EMPLEADO = "EMPLEADO", "Empleado/a"
-        DESEMPLEADO = "DESEMPLEADO", "Desempleado/a"
-        INDEPENDIENTE = "INDEPENDIENTE", "Trabajador/a independiente"
-        NO_APLICA = "NO_APLICA", "No aplica"
-
-    class SituacionHabitacional(models.TextChoices):
-        PROPIETARIO = "PROPIETARIO", "Propietario/a"
-        ALQUILANDO = "ALQUILANDO", "Alquilando"
-        PRESTADA = "PRESTADA", "Vivienda prestada/cedida"
-        OTRO = "OTRO", "Otro"
-
-    class DependenciaEconomica(models.TextChoices):
-        INDEPENDIENTE = "INDEPENDIENTE", "Independiente"
-        PADRE_MADRE = "PADRE_MADRE", "Solo de padre o madre"
-        OTRO_FAMILIAR = "OTRO_FAMILIAR", "Otro familiar"
-        PAREJA = "PAREJA", "De la pareja"
-        AMBOS_PADRES = "AMBOS_PADRES", "Ambos padres"
-
-    class TipoOcupacionSosten(models.TextChoices):
-        ASALARIADO_FORMAL = "ASALARIADO_FORMAL", "Asalariado formal"
-        ASALARIADO_INFORMAL = "ASALARIADO_INFORMAL", "Asalariado informal"
-        COMERCIANTE_MAYORISTA = "COMERCIANTE_MAYORISTA", "Comerciante mayorista"
-        RENTISTA = "RENTISTA", "Rentista"
-        COMERCIANTE_MINORISTA = "COMERCIANTE_MINORISTA", "Comerciante minorista"
-        AGRICULTOR = "AGRICULTOR", "Agricultor"
-
-    class TipoTenenciaVivienda(models.TextChoices):
-        HERENCIA = "HERENCIA", "Herencia"
-        DE_LOS_PADRES = "DE_LOS_PADRES", "De los padres"
-        CEDIDA = "CEDIDA", "Cedida"
-        ANTICRETICO = "ANTICRETICO", "Anticrético"
-        ALQUILER = "ALQUILER", "Alquiler"
-
     class ParentescoIntegrante(models.TextChoices):
         PADRE = "PADRE", "Padre"
         MADRE = "MADRE", "Madre"
@@ -53,24 +185,9 @@ class FormularioSocioeconomico(models.Model):
         related_name="formulario_socioeconomico",
         verbose_name="estudiante",
     )
-    
-    situacion_laboral = models.CharField(
-        "situación laboral",
-        max_length=20,
-        choices=SituacionLaboral.choices,
-    )
-    ingreso_mensual_familiar = models.DecimalField(
-        "ingreso mensual familiar (ARS)",
-        max_digits=12,
-        decimal_places=2,
-    )
+
     cantidad_familiares = models.PositiveSmallIntegerField(
         "cantidad de miembros del grupo familiar"
-    )
-    situacion_habitacional = models.CharField(
-        "situación habitacional",
-        max_length=20,
-        choices=SituacionHabitacional.choices,
     )
     tiene_beca_previa = models.BooleanField("¿posee otra beca actualmente?", default=False)
     observaciones = models.TextField("observaciones adicionales", blank=True)
@@ -82,17 +199,29 @@ class FormularioSocioeconomico(models.Model):
     telefono_referencia = models.CharField("teléfono de referencia", max_length=20, blank=True)
 
     # 2° Dependencia económica del postulante
-    dependencia_economica = models.CharField(
-        "¿de quién depende usted?",
-        max_length=20,
-        choices=DependenciaEconomica.choices,
+    dependencia_economica = models.ForeignKey(
+        OpcionDependencia,
+        on_delete=models.SET_NULL,
+        null=True,
         blank=True,
+        related_name="formularios",
+        verbose_name="¿de quién depende usted?",
     )
-    tipo_ocupacion_sosten = models.CharField(
-        "ocupación de quien lo sostiene económicamente",
-        max_length=25,
-        choices=TipoOcupacionSosten.choices,
+    tipo_ocupacion_sosten = models.ForeignKey(
+        TipoOcupacionSosten,
+        on_delete=models.SET_NULL,
+        null=True,
         blank=True,
+        related_name="formularios",
+        verbose_name="ocupación de quien lo sostiene económicamente",
+    )
+    rango_ingreso = models.ForeignKey(
+        RangoIngreso,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="formularios",
+        verbose_name="rango de ingreso mensual familiar",
     )
 
     # 3° Grupo familiar
@@ -115,11 +244,13 @@ class FormularioSocioeconomico(models.Model):
     residencia_calle = models.CharField("calle", max_length=150, blank=True)
 
     # 6° Tenencia de vivienda
-    tipo_tenencia_vivienda = models.CharField(
-        "tenencia de la vivienda",
-        max_length=20,
-        choices=TipoTenenciaVivienda.choices,
+    tipo_tenencia_vivienda = models.ForeignKey(
+        TipoTenenciaVivienda,
+        on_delete=models.SET_NULL,
+        null=True,
         blank=True,
+        related_name="formularios",
+        verbose_name="tenencia de la vivienda",
     )
 
     # 7° Infraestructura de la vivienda
@@ -129,7 +260,7 @@ class FormularioSocioeconomico(models.Model):
     salas = models.PositiveSmallIntegerField("salas", default=0)
     patios = models.PositiveSmallIntegerField("patios", default=0)
 
-    # 8° Otro beneficio dentro de la universidad (complementa tiene_beca_previa)
+    # 8° Otro beneficio dentro de la universidad
     detalle_otro_beneficio = models.CharField("¿cuál otro beneficio?", max_length=200, blank=True)
 
     # 9° Discapacidad

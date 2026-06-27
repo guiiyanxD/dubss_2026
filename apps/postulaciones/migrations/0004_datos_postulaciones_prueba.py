@@ -1,25 +1,8 @@
-from decimal import Decimal
-
 from django.db import migrations
 from django.db.models import Max
 from django.utils import timezone
 
 EMAILS_SELECCIONADOS = [f"estudiante{i:03d}@becas.com" for i in range(4, 87)]  # 83 estudiantes
-
-SITUACIONES_LABORALES = ["EMPLEADO", "DESEMPLEADO", "INDEPENDIENTE", "NO_APLICA"]
-SITUACIONES_HABITACIONALES = ["PROPIETARIO", "ALQUILANDO", "PRESTADA", "OTRO"]
-INGRESOS_MENSUALES = [
-    Decimal("120000"),
-    Decimal("250000"),
-    Decimal("80000"),
-    Decimal("400000"),
-    Decimal("600000"),
-    Decimal("95000"),
-    Decimal("180000"),
-    Decimal("350000"),
-    Decimal("60000"),
-    Decimal("220000"),
-]
 
 # (beca, convocatoria, cantidad) — cantidades todas distintas, suman 83.
 DISTRIBUCION = [
@@ -71,12 +54,7 @@ def crear_postulaciones_prueba(apps, schema_editor):
         formulario, _ = FormularioSocioeconomico.objects.update_or_create(
             usuario=estudiante,
             defaults={
-                "situacion_laboral": SITUACIONES_LABORALES[i % len(SITUACIONES_LABORALES)],
-                "ingreso_mensual_familiar": INGRESOS_MENSUALES[i % len(INGRESOS_MENSUALES)],
                 "cantidad_familiares": (i % 6) + 1,
-                "situacion_habitacional": (
-                    SITUACIONES_HABITACIONALES[i % len(SITUACIONES_HABITACIONALES)]
-                ),
                 "tiene_beca_previa": i % 7 == 0,
                 "completado": True,
             },
@@ -120,7 +98,7 @@ class Migration(migrations.Migration):
     dependencies = [
         ("postulaciones", "0003_numero_referencia_contador"),
         ("convocatorias", "0003_datos_convocatorias_becas"),
-        ("configuracion", "0002_formulario_campos_dubs002"),
+        ("configuracion", "0005_sync_catalog_fields"),
         ("acceso", "0004_datos_100_estudiantes"),
     ]
 

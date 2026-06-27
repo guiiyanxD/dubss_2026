@@ -20,6 +20,8 @@ lib64/
 *.docx
 *.pdf
 *.png
+*.jpeg
+*.jpg
 # Django
 *.log
 local_settings.py

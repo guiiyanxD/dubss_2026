@@ -39,31 +39,39 @@ class BecaForm(forms.Form):
     )
     activa = forms.BooleanField(label="Activa", required=False, initial=True)
 
-    # CU15 — Ponderación configurable. Los initial reproducen la fórmula original.
-    peso_ingreso = forms.IntegerField(
-        label="Peso: ingreso familiar (%)", min_value=0, max_value=100, initial=40
+    # CU15 — Ponderación por sección del formulario socioeconómico. Los initial suman 100.
+    peso_dependencia_economica = forms.IntegerField(
+        label="Peso: dependencia económica (%)", min_value=0, max_value=100, initial=30
     )
-    peso_desempleo = forms.IntegerField(
-        label="Peso: desempleo (%)", min_value=0, max_value=100, initial=20
+    peso_grupo_familiar = forms.IntegerField(
+        label="Peso: grupo familiar (%)", min_value=0, max_value=100, initial=20
     )
-    peso_familiares = forms.IntegerField(
-        label="Peso: cantidad de familiares (%)", min_value=0, max_value=100, initial=20
+    peso_procedencia = forms.IntegerField(
+        label="Peso: procedencia (%)", min_value=0, max_value=100, initial=5
     )
-    peso_no_propietario = forms.IntegerField(
-        label="Peso: no propietario de vivienda (%)", min_value=0, max_value=100, initial=10
+    peso_tenencia_vivienda = forms.IntegerField(
+        label="Peso: tenencia de vivienda (%)", min_value=0, max_value=100, initial=15
     )
-    peso_sin_beca_previa = forms.IntegerField(
-        label="Peso: sin beca previa (%)", min_value=0, max_value=100, initial=10
+    peso_infraestructura = forms.IntegerField(
+        label="Peso: infraestructura (%)", min_value=0, max_value=100, initial=15
+    )
+    peso_otro_beneficio = forms.IntegerField(
+        label="Peso: otro beneficio (%)", min_value=0, max_value=100, initial=10
+    )
+    peso_discapacidad = forms.IntegerField(
+        label="Peso: discapacidad (%)", min_value=0, max_value=100, initial=5
     )
 
     def clean(self):
         cleaned_data = super().clean()
         campos_peso = [
-            "peso_ingreso",
-            "peso_desempleo",
-            "peso_familiares",
-            "peso_no_propietario",
-            "peso_sin_beca_previa",
+            "peso_dependencia_economica",
+            "peso_grupo_familiar",
+            "peso_procedencia",
+            "peso_tenencia_vivienda",
+            "peso_infraestructura",
+            "peso_otro_beneficio",
+            "peso_discapacidad",
         ]
         if all(campo in cleaned_data for campo in campos_peso):
             suma = sum(cleaned_data[campo] for campo in campos_peso)

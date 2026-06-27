@@ -1,32 +1,21 @@
 from django import forms
 
-from .models import FormularioSocioeconomico
+from .models import (
+    FormularioSocioeconomico,
+    OpcionDependencia,
+    RangoIngreso,
+    TipoOcupacionSosten,
+    TipoTenenciaVivienda,
+)
 
 
 class FormularioSocioeconomicoForm(forms.Form):
 
-    situacion_laboral = forms.ChoiceField(
-        label="Situación laboral",
-        choices=FormularioSocioeconomico.SituacionLaboral.choices,
-        widget=forms.Select(attrs={"class": "form-select"}),
-    )
-    ingreso_mensual_familiar = forms.DecimalField(
-        label="Ingreso mensual familiar (Bs.)",
-        min_value=0,
-        max_digits=12,
-        decimal_places=2,
-        widget=forms.NumberInput(attrs={"class": "form-control"}),
-    )
     cantidad_familiares = forms.IntegerField(
         label="Cantidad de miembros del grupo familiar",
         min_value=1,
         max_value=20,
         widget=forms.NumberInput(attrs={"class": "form-control"}),
-    )
-    situacion_habitacional = forms.ChoiceField(
-        label="Situación habitacional",
-        choices=FormularioSocioeconomico.SituacionHabitacional.choices,
-        widget=forms.Select(attrs={"class": "form-select"}),
     )
     tiene_beca_previa = forms.BooleanField(
         label="¿Posee otra beca actualmente?",
@@ -54,16 +43,26 @@ class FormularioSocioeconomicoForm(forms.Form):
     )
 
     # 2° Dependencia económica del postulante
-    dependencia_economica = forms.ChoiceField(
+    dependencia_economica = forms.ModelChoiceField(
         label="¿De quién depende usted?",
-        choices=FormularioSocioeconomico.DependenciaEconomica.choices,
+        queryset=OpcionDependencia.objects.filter(activo=True),
         required=False,
+        empty_label="— Seleccione —",
         widget=forms.Select(attrs={"class": "form-select"}),
     )
-    tipo_ocupacion_sosten = forms.ChoiceField(
+    tipo_ocupacion_sosten = forms.ModelChoiceField(
         label="Ocupación de quien lo sostiene económicamente",
-        choices=FormularioSocioeconomico.TipoOcupacionSosten.choices,
+        queryset=TipoOcupacionSosten.objects.filter(activo=True),
         required=False,
+        empty_label="— Seleccione —",
+        widget=forms.Select(attrs={"class": "form-select"}),
+    )
+    rango_ingreso = forms.ModelChoiceField(
+        label="Rango de ingreso mensual familiar (Bs.)",
+        queryset=RangoIngreso.objects.filter(activo=True),
+        required=False,
+        empty_label="— Seleccione —",
+        widget=forms.Select(attrs={"class": "form-select"}),
     )
 
     # 3° Grupo familiar
@@ -124,10 +123,12 @@ class FormularioSocioeconomicoForm(forms.Form):
     )
 
     # 6° Tenencia de vivienda
-    tipo_tenencia_vivienda = forms.ChoiceField(
+    tipo_tenencia_vivienda = forms.ModelChoiceField(
         label="Tenencia de la vivienda",
-        choices=FormularioSocioeconomico.TipoTenenciaVivienda.choices,
+        queryset=TipoTenenciaVivienda.objects.filter(activo=True),
         required=False,
+        empty_label="— Seleccione —",
+        widget=forms.Select(attrs={"class": "form-select"}),
     )
 
     # 7° Infraestructura de la vivienda

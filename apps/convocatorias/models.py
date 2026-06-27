@@ -9,17 +9,28 @@ class Beca(models.Model):
     descripcion = models.TextField("descripción", blank=True)
     activa = models.BooleanField("activa", default=True)
 
-    # CU15 — Ponderación configurable por beca. Los defaults reproducen exactamente
-    # la fórmula que estaba hardcodeada en apps.reportes.services antes de CU15.
-    peso_ingreso = models.PositiveSmallIntegerField("peso: ingreso familiar (%)", default=40)
-    peso_desempleo = models.PositiveSmallIntegerField("peso: desempleo (%)", default=20)
-    peso_familiares = models.PositiveSmallIntegerField(
-        "peso: cantidad de familiares (%)", default=20
+    # CU15 — Ponderación por sección del formulario socioeconómico. Los defaults suman 100.
+    peso_dependencia_economica = models.PositiveSmallIntegerField(
+        "peso: dependencia económica (%)", default=30
     )
-    peso_no_propietario = models.PositiveSmallIntegerField(
-        "peso: no propietario de vivienda (%)", default=10
+    peso_grupo_familiar = models.PositiveSmallIntegerField(
+        "peso: grupo familiar (%)", default=20
     )
-    peso_sin_beca_previa = models.PositiveSmallIntegerField("peso: sin beca previa (%)", default=10)
+    peso_procedencia = models.PositiveSmallIntegerField(
+        "peso: procedencia (%)", default=5
+    )
+    peso_tenencia_vivienda = models.PositiveSmallIntegerField(
+        "peso: tenencia de vivienda (%)", default=15
+    )
+    peso_infraestructura = models.PositiveSmallIntegerField(
+        "peso: infraestructura (%)", default=15
+    )
+    peso_otro_beneficio = models.PositiveSmallIntegerField(
+        "peso: otro beneficio (%)", default=10
+    )
+    peso_discapacidad = models.PositiveSmallIntegerField(
+        "peso: discapacidad (%)", default=5
+    )
 
     class Meta:
         verbose_name = "beca"
@@ -31,11 +42,13 @@ class Beca(models.Model):
 
     def clean(self):
         suma = (
-            self.peso_ingreso
-            + self.peso_desempleo
-            + self.peso_familiares
-            + self.peso_no_propietario
-            + self.peso_sin_beca_previa
+            self.peso_dependencia_economica
+            + self.peso_grupo_familiar
+            + self.peso_procedencia
+            + self.peso_tenencia_vivienda
+            + self.peso_infraestructura
+            + self.peso_otro_beneficio
+            + self.peso_discapacidad
         )
         if suma != 100:
             raise ValidationError(

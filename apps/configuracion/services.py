@@ -7,16 +7,14 @@ from .models import FormularioSocioeconomico, IntegranteFamiliar
 def guardar_formulario(
     *,
     estudiante,
-    situacion_laboral,
-    ingreso_mensual_familiar,
     cantidad_familiares,
-    situacion_habitacional,
     tiene_beca_previa,
     observaciones="",
     numero_celular="",
     telefono_referencia="",
-    dependencia_economica="",
-    tipo_ocupacion_sosten="",
+    dependencia_economica=None,
+    tipo_ocupacion_sosten=None,
+    rango_ingreso=None,
     tiene_hijos=False,
     cantidad_hijos=None,
     lugar_procedencia="",
@@ -25,7 +23,7 @@ def guardar_formulario(
     residencia_zona_anillo="",
     residencia_barrio="",
     residencia_calle="",
-    tipo_tenencia_vivienda="",
+    tipo_tenencia_vivienda=None,
     dormitorios=0,
     banos=0,
     comedores=0,
@@ -39,20 +37,18 @@ def guardar_formulario(
 
     Args:
         estudiante: Instancia de Usuario (rol Estudiante).
-        situacion_laboral: Valor de SituacionLaboral choices.
-        ingreso_mensual_familiar: Decimal con el ingreso mensual del grupo familiar.
         cantidad_familiares: Número de integrantes del grupo familiar.
-        situacion_habitacional: Valor de SituacionHabitacional choices.
         tiene_beca_previa: Bool indicando si ya posee otra beca.
         observaciones: Texto opcional.
         numero_celular, telefono_referencia: Contacto del postulante.
-        dependencia_economica: Valor de DependenciaEconomica choices.
-        tipo_ocupacion_sosten: Valor de TipoOcupacionSosten choices.
+        dependencia_economica: Instancia de OpcionDependencia o None.
+        tipo_ocupacion_sosten: Instancia de TipoOcupacionSosten o None.
+        rango_ingreso: Instancia de RangoIngreso o None.
         tiene_hijos, cantidad_hijos: Datos del grupo familiar del postulante.
         lugar_procedencia: Ciudad/provincia de origen, si difiere de la residencia actual.
         residencia_lugar, residencia_provincia, residencia_zona_anillo, residencia_barrio,
             residencia_calle: Dirección de residencia actual.
-        tipo_tenencia_vivienda: Valor de TipoTenenciaVivienda choices.
+        tipo_tenencia_vivienda: Instancia de TipoTenenciaVivienda o None.
         dormitorios, banos, comedores, salas, patios: Infraestructura de la vivienda.
         detalle_otro_beneficio: Detalle de otro beneficio universitario, si aplica.
         tiene_discapacidad, detalle_discapacidad: Datos de discapacidad, si aplica.
@@ -63,16 +59,14 @@ def guardar_formulario(
     formulario, _ = FormularioSocioeconomico.objects.update_or_create(
         usuario=estudiante,
         defaults={
-            "situacion_laboral": situacion_laboral,
-            "ingreso_mensual_familiar": ingreso_mensual_familiar,
             "cantidad_familiares": cantidad_familiares,
-            "situacion_habitacional": situacion_habitacional,
             "tiene_beca_previa": tiene_beca_previa,
             "observaciones": observaciones,
             "numero_celular": numero_celular,
             "telefono_referencia": telefono_referencia,
             "dependencia_economica": dependencia_economica,
             "tipo_ocupacion_sosten": tipo_ocupacion_sosten,
+            "rango_ingreso": rango_ingreso,
             "tiene_hijos": tiene_hijos,
             "cantidad_hijos": cantidad_hijos,
             "lugar_procedencia": lugar_procedencia,

@@ -1,22 +1,32 @@
 from django.contrib import messages
-from django.contrib.auth.decorators import login_required
+from django.contrib.auth.decorators import login_required, user_passes_test
 from django.http import HttpResponseBadRequest
 from django.shortcuts import redirect, render
 
 from . import services
 from .forms import FormularioSocioeconomicoForm, IntegranteFamiliarFormSet
-from .models import FormularioSocioeconomico
+from .models import (
+    FormularioSocioeconomico,
+    OpcionDependencia,
+    OpcionDiscapacidad,
+    OpcionOtroBeneficio,
+    RangoGrupoFamiliar,
+    RangoIngreso,
+    RangoInfraestructura,
+    TipoOcupacionSosten,
+    TipoTenenciaVivienda,
+)
+
+_es_director = user_passes_test(lambda u: u.is_superuser or u.get_rol() == "Director")
 
 CAMPOS_FORMULARIO = [
-    "situacion_laboral",
-    "ingreso_mensual_familiar",
     "cantidad_familiares",
-    "situacion_habitacional",
     "tiene_beca_previa",
     "numero_celular",
     "telefono_referencia",
     "dependencia_economica",
     "tipo_ocupacion_sosten",
+    "rango_ingreso",
     "tiene_hijos",
     "cantidad_hijos",
     "lugar_procedencia",
@@ -83,6 +93,99 @@ def formulario_view(request):
         "configuracion/formulario.html",
         {"form": form, "formset": formset, "formulario": formulario},
     )
+
+
+def _serializar_catalogo(qs, campos_extra=None):
+    campos_extra = campos_extra or []
+    filas = []
+    for obj in qs:
+        extras = [getattr(obj, campo, None) for campo in campos_extra]
+        filas.append({
+            "nombre": obj.nombre,
+            "valor_puntaje": obj.valor_puntaje,
+            "activo": obj.activo,
+            "extras": extras,
+        })
+    return filas
+
+
+@login_required
+@_es_director
+def catalogos_socioeconomicos_view(request):
+    catalogos = [
+        {
+            "titulo": "Dependencia económica",
+            "seccion": "Sección 2a°",
+            "admin_url": "configuracion/opciondependencia",
+            "columnas_extra": [],
+            "filas": _serializar_catalogo(OpcionDependencia.objects.all()),
+        },
+        {
+            "titulo": "Tipo de ocupación del sostén",
+            "seccion": "Sección 2b°",
+            "admin_url": "configuracion/tipocupacionsosten",
+            "columnas_extra": [],
+            "filas": _serializar_catalogo(TipoOcupacionSosten.objects.all()),
+        },
+        {
+            "titulo": "Rango de ingreso mensual familiar",
+            "seccion": "Sección 2c°",
+            "admin_url": "configuracion/rangoingreso",
+            "columnas_extra": [
+                {"key": "monto_minimo", "label": "Mínimo (Bs.)"},
+                {"key": "monto_maximo", "label": "Máximo (Bs.)"},
+            ],
+            "filas": _serializar_catalogo(
+                RangoIngreso.objects.all(), ["monto_minimo", "monto_maximo"]
+            ),
+        },
+        {
+            "titulo": "Grupo familiar",
+            "seccion": "Sección 3°",
+            "admin_url": "configuracion/rangogrupofamiliar",
+            "columnas_extra": [
+                {"key": "cantidad_minima", "label": "Mín. miembros"},
+                {"key": "cantidad_maxima", "label": "Máx. miembros"},
+            ],
+            "filas": _serializar_catalogo(
+                RangoGrupoFamiliar.objects.all(), ["cantidad_minima", "cantidad_maxima"]
+            ),
+        },
+        {
+            "titulo": "Tenencia de vivienda",
+            "seccion": "Sección 6°",
+            "admin_url": "configuracion/tipotenancivienda",
+            "columnas_extra": [],
+            "filas": _serializar_catalogo(TipoTenenciaVivienda.objects.all()),
+        },
+        {
+            "titulo": "Infraestructura de la vivienda",
+            "seccion": "Sección 7°",
+            "admin_url": "configuracion/rangoinfraestructura",
+            "columnas_extra": [
+                {"key": "total_minimo", "label": "Ambientes mín."},
+                {"key": "total_maximo", "label": "Ambientes máx."},
+            ],
+            "filas": _serializar_catalogo(
+                RangoInfraestructura.objects.all(), ["total_minimo", "total_maximo"]
+            ),
+        },
+        {
+            "titulo": "Otro beneficio universitario",
+            "seccion": "Sección 8°",
+            "admin_url": "configuracion/opcionotrobeneficio",
+            "columnas_extra": [],
+            "filas": _serializar_catalogo(OpcionOtroBeneficio.objects.all()),
+        },
+        {
+            "titulo": "Discapacidad",
+            "seccion": "Sección 9°",
+            "admin_url": "configuracion/opciondiscapacidad",
+            "columnas_extra": [],
+            "filas": _serializar_catalogo(OpcionDiscapacidad.objects.all()),
+        },
+    ]
+    return render(request, "configuracion/catalogos.html", {"catalogos": catalogos})
 
 
 @login_required

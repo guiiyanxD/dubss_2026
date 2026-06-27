@@ -157,19 +157,25 @@ def test_editar_beca(db):
 def test_crear_beca_pesos_personalizados(db):
     beca = crear_beca(
         nombre="Beca Pesos",
-        peso_ingreso=100,
-        peso_desempleo=0,
-        peso_familiares=0,
-        peso_no_propietario=0,
-        peso_sin_beca_previa=0,
+        peso_dependencia_economica=40,
+        peso_grupo_familiar=20,
+        peso_procedencia=5,
+        peso_tenencia_vivienda=15,
+        peso_infraestructura=10,
+        peso_otro_beneficio=5,
+        peso_discapacidad=5,
     )
-    assert beca.peso_ingreso == 100
-    assert beca.peso_desempleo == 0
+    assert beca.peso_dependencia_economica == 40
+    assert beca.peso_grupo_familiar == 20
 
 
 def test_crear_beca_pesos_no_suman_100(db):
     with pytest.raises(PonderacionInvalidaError):
-        crear_beca(nombre="Beca Inválida", peso_ingreso=50, peso_desempleo=20)
+        crear_beca(
+            nombre="Beca Inválida",
+            peso_dependencia_economica=50,
+            peso_grupo_familiar=20,
+        )
 
 
 def test_editar_beca_pesos_no_suman_100(db):
@@ -180,8 +186,8 @@ def test_editar_beca_pesos_no_suman_100(db):
             nombre="Otra Beca",
             descripcion="",
             activa=True,
-            peso_ingreso=90,
-            peso_desempleo=90,
+            peso_dependencia_economica=90,
+            peso_grupo_familiar=90,
         )
 
 

@@ -4,7 +4,7 @@ from decimal import Decimal
 import pytest
 from django.utils import timezone
 
-from apps.configuracion.models import FormularioSocioeconomico
+from apps.configuracion.models import OpcionDependencia
 from apps.notificaciones.models import Notificacion
 from apps.postulaciones.models import DocumentoPostulacion, Postulacion
 from apps.reportes import selectors
@@ -185,12 +185,12 @@ def test_validacion_por_tipo_documento(convocatoria, beca, crear_estudiante, tip
     )
 
     resultado = selectors.validacion_por_tipo_documento()
-    assert resultado == {
-        "etiquetas": [tipo_documento.nombre],
-        "aprobado": [1],
-        "rechazado": [1],
-        "pendiente": [0],
-    }
+    # El tipo_documento fixture puede coexistir con los creados por seed data.
+    # Verificamos que el tipo del fixture tiene los valores esperados.
+    idx = resultado["etiquetas"].index(tipo_documento.nombre)
+    assert resultado["aprobado"][idx] == 1
+    assert resultado["rechazado"][idx] == 1
+    assert resultado["pendiente"][idx] == 0
 
 
 @pytest.mark.django_db
@@ -218,7 +218,10 @@ def test_documento_mayor_rechazo(convocatoria, beca, crear_estudiante, tipo_docu
 
 @pytest.mark.django_db
 def test_distribucion_ingreso_familiar(convocatoria, beca, crear_estudiante):
-    u, f = crear_estudiante(ingreso=30000)
+    from apps.configuracion.models import RangoIngreso
+
+    rng = RangoIngreso.objects.create(nombre="Bajo selector test", valor_puntaje=100)
+    u, f = crear_estudiante(rango_ingreso=rng)
     Postulacion.objects.create(
         estudiante=u,
         convocatoria=convocatoria,
@@ -228,7 +231,7 @@ def test_distribucion_ingreso_familiar(convocatoria, beca, crear_estudiante):
     )
 
     resultado = selectors.distribucion_ingreso_familiar(convocatoria=convocatoria)
-    assert resultado == {"valores": [30000.0]}
+    assert resultado == {"valores": ["Bajo selector test"]}
 
 
 @pytest.mark.django_db
@@ -249,7 +252,10 @@ def test_distribucion_puntaje_socioeconomico(convocatoria, beca, crear_estudiant
 
 @pytest.mark.django_db
 def test_distribucion_choices(convocatoria, beca, crear_estudiante):
-    u, f = crear_estudiante(laboral=FormularioSocioeconomico.SituacionLaboral.DESEMPLEADO)
+    dep = OpcionDependencia.objects.create(nombre="Solo madre/padre", valor_puntaje=80)
+    u, f = crear_estudiante(rango_ingreso=None)
+    f.dependencia_economica = dep
+    f.save()
     Postulacion.objects.create(
         estudiante=u,
         convocatoria=convocatoria,
@@ -258,8 +264,8 @@ def test_distribucion_choices(convocatoria, beca, crear_estudiante):
         estado=Postulacion.Estado.ENVIADA,
     )
 
-    resultado = selectors.distribucion_choices("situacion_laboral", convocatoria=convocatoria)
-    assert resultado == {"etiquetas": ["Desempleado/a"], "valores": [1]}
+    resultado = selectors.distribucion_choices("dependencia_economica", convocatoria=convocatoria)
+    assert resultado == {"etiquetas": ["Solo madre/padre"], "valores": [1]}
 
 
 @pytest.mark.django_db

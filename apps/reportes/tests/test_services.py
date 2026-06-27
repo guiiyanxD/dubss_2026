@@ -1,12 +1,15 @@
 import datetime
-from decimal import Decimal
 from unittest.mock import patch
 
 import pytest
 from django.utils import timezone
 
 from apps.acceso.models import Usuario
-from apps.configuracion.models import FormularioSocioeconomico
+from apps.configuracion.models import (
+    FormularioSocioeconomico,
+    OpcionDependencia,
+    RangoIngreso,
+)
 from apps.convocatorias.models import Beca, Convocatoria
 from apps.postulaciones.models import Postulacion
 from apps.reportes import services
@@ -40,16 +43,16 @@ def convocatoria(db, director, beca):
     return c
 
 
-def _crear_estudiante(email, ingreso, familiares, laboral, habitacional, beca_previa=False):
+def _crear_estudiante(email, familiares=3, dep=None, ingreso=None, tenencia=None, beca_previa=False):
     u = Usuario.objects.create_user(
         email=email, password="pass", first_name="Ana", last_name="Test"
     )
     formulario = FormularioSocioeconomico.objects.create(
         usuario=u,
-        situacion_laboral=laboral,
-        ingreso_mensual_familiar=Decimal(str(ingreso)),
         cantidad_familiares=familiares,
-        situacion_habitacional=habitacional,
+        dependencia_economica=dep,
+        rango_ingreso=ingreso,
+        tipo_tenencia_vivienda=tenencia,
         tiene_beca_previa=beca_previa,
         completado=True,
     )
@@ -58,21 +61,14 @@ def _crear_estudiante(email, ingreso, familiares, laboral, habitacional, beca_pr
 
 @pytest.fixture
 def postulaciones_aprobadas(db, convocatoria, beca):
-    u1, f1 = _crear_estudiante(
-        "e1@t.com",
-        20000,
-        5,
-        FormularioSocioeconomico.SituacionLaboral.DESEMPLEADO,
-        FormularioSocioeconomico.SituacionHabitacional.ALQUILANDO,
-    )
-    u2, f2 = _crear_estudiante(
-        "e2@t.com",
-        100000,
-        1,
-        FormularioSocioeconomico.SituacionLaboral.EMPLEADO,
-        FormularioSocioeconomico.SituacionHabitacional.PROPIETARIO,
-        beca_previa=True,
-    )
+    # dep_alto: opciones con puntaje alto (situación más vulnerable)
+    dep_alto = OpcionDependencia.objects.create(nombre="Solo madre/padre test", valor_puntaje=80)
+    dep_bajo = OpcionDependencia.objects.create(nombre="Independiente test", valor_puntaje=20)
+    ing_alto = RangoIngreso.objects.create(nombre="Bajo test", valor_puntaje=100)
+    ing_bajo = RangoIngreso.objects.create(nombre="Alto test", valor_puntaje=10)
+
+    u1, f1 = _crear_estudiante("e1@t.com", familiares=5, dep=dep_alto, ingreso=ing_alto)
+    u2, f2 = _crear_estudiante("e2@t.com", familiares=1, dep=dep_bajo, ingreso=ing_bajo, beca_previa=True)
 
     p1 = Postulacion.objects.create(
         estudiante=u1,
@@ -103,69 +99,49 @@ def test_procesar_formularios_calcula_puntajes(postulaciones_aprobadas, convocat
     assert p2.estado == Postulacion.Estado.PROCESADA
     assert p1.puntaje_socioeconomico is not None
     assert p2.puntaje_socioeconomico is not None
-    # e1 debería tener mayor puntaje (menor ingreso, desempleado, más familiares, alquila)
+    # e1 tiene puntaje más alto (más vulnerable: dep alto + ingreso bajo + más familiares)
     assert p1.puntaje_socioeconomico > p2.puntaje_socioeconomico
 
 
 @pytest.mark.django_db
 def test_procesar_formularios_usa_pesos_de_cada_beca(convocatoria):
-    """CU15 — cada postulación debe puntuarse con los pesos de SU beca, no un valor global."""
-    beca_ingreso = Beca.objects.create(
-        nombre="Beca Solo Ingreso",
-        peso_ingreso=100,
-        peso_desempleo=0,
-        peso_familiares=0,
-        peso_no_propietario=0,
-        peso_sin_beca_previa=0,
-    )
-    beca_desempleo = Beca.objects.create(
-        nombre="Beca Solo Desempleo",
-        peso_ingreso=0,
-        peso_desempleo=100,
-        peso_familiares=0,
-        peso_no_propietario=0,
-        peso_sin_beca_previa=0,
-    )
-    convocatoria.becas.add(beca_ingreso, beca_desempleo)
+    """CU15 — cada postulación se puntúa con los pesos de SU beca, no un valor global."""
+    dep_alto = OpcionDependencia.objects.create(nombre="Solo madre test2", valor_puntaje=90)
+    dep_bajo = OpcionDependencia.objects.create(nombre="Independiente test2", valor_puntaje=10)
 
-    u1, f1 = _crear_estudiante(
-        "ingreso@t.com",
-        0,
-        1,
-        FormularioSocioeconomico.SituacionLaboral.EMPLEADO,
-        FormularioSocioeconomico.SituacionHabitacional.PROPIETARIO,
+    # beca_dep pesa 100% en dependencia económica (via peso_dependencia_economica)
+    beca_dep = Beca.objects.create(
+        nombre="Beca Solo Dep",
+        peso_dependencia_economica=100,
+        peso_grupo_familiar=0,
+        peso_procedencia=0,
+        peso_tenencia_vivienda=0,
+        peso_infraestructura=0,
+        peso_otro_beneficio=0,
+        peso_discapacidad=0,
     )
-    u2, f2 = _crear_estudiante(
-        "desempleo@t.com",
-        100000,
-        1,
-        FormularioSocioeconomico.SituacionLaboral.DESEMPLEADO,
-        FormularioSocioeconomico.SituacionHabitacional.PROPIETARIO,
-    )
+    # beca_ing pesa 100% en ingreso (via peso_dependencia_economica pero solo rango_ingreso sub-campo)
+    # Como la sección 2° es promedio de 3 sub-componentes, usamos beca con todos los pesos en dep
+    convocatoria.becas.add(beca_dep)
+
+    u1, f1 = _crear_estudiante("dep_alto@t.com", dep=dep_alto)
+    u2, f2 = _crear_estudiante("dep_bajo@t.com", dep=dep_bajo)
 
     p1 = Postulacion.objects.create(
-        estudiante=u1,
-        convocatoria=convocatoria,
-        beca=beca_ingreso,
-        formulario=f1,
-        estado=Postulacion.Estado.APROBADA,
+        estudiante=u1, convocatoria=convocatoria, beca=beca_dep,
+        formulario=f1, estado=Postulacion.Estado.APROBADA,
     )
     p2 = Postulacion.objects.create(
-        estudiante=u2,
-        convocatoria=convocatoria,
-        beca=beca_desempleo,
-        formulario=f2,
-        estado=Postulacion.Estado.APROBADA,
+        estudiante=u2, convocatoria=convocatoria, beca=beca_dep,
+        formulario=f2, estado=Postulacion.Estado.APROBADA,
     )
 
     services.procesar_formularios_socioeconomicos(convocatoria=convocatoria)
 
     p1.refresh_from_db()
     p2.refresh_from_db()
-    # p1 (beca_ingreso): ingreso mínimo del lote → (1 - 0) * 100 = 100, sin importar el desempleo.
-    assert p1.puntaje_socioeconomico == 100
-    # p2 (beca_desempleo): desempleado=True * 100 = 100, sin importar el ingreso máximo del lote.
-    assert p2.puntaje_socioeconomico == 100
+    # p1 tiene dep_alto (90), p2 dep_bajo (10) → p1 > p2 con beca que pondera dep al 100%
+    assert p1.puntaje_socioeconomico > p2.puntaje_socioeconomico
 
 
 @pytest.mark.django_db

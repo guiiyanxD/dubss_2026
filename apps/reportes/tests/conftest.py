@@ -1,5 +1,4 @@
 import datetime
-from decimal import Decimal
 
 import pytest
 from django.utils import timezone
@@ -39,16 +38,13 @@ def tipo_documento(db):
 
 @pytest.fixture
 def crear_estudiante(db):
-    """Factory fixture: crea un Usuario + FormularioSocioeconomico (y opcionalmente un
-    PerfilEstudiante) con valores por defecto razonables, sobreescribibles por kwargs."""
+    """Factory fixture: crea un Usuario + FormularioSocioeconomico con valores razonables."""
     contador = {"n": 0}
 
     def _crear(
         *,
-        ingreso=50000,
         familiares=3,
-        laboral=FormularioSocioeconomico.SituacionLaboral.EMPLEADO,
-        habitacional=FormularioSocioeconomico.SituacionHabitacional.ALQUILANDO,
+        rango_ingreso=None,
         beca_previa=False,
         carrera=None,
         anio_ingreso=None,
@@ -60,18 +56,19 @@ def crear_estudiante(db):
             email=f"estudiante{n}@test.com", password="pass", first_name="Ana", last_name=f"Test{n}"
         )
         if carrera is not None or anio_ingreso is not None:
+            import datetime
+
             PerfilEstudiante.objects.create(
                 usuario=usuario,
                 nro_registro=f"{anio_ingreso or 2020}{n:05d}",
                 carrera=carrera or "Ingeniería de Sistemas",
                 anio_ingreso=anio_ingreso or 2020,
+                fecha_nacimiento=datetime.date(2000, 1, 1),
             )
         formulario = FormularioSocioeconomico.objects.create(
             usuario=usuario,
-            situacion_laboral=laboral,
-            ingreso_mensual_familiar=Decimal(str(ingreso)),
             cantidad_familiares=familiares,
-            situacion_habitacional=habitacional,
+            rango_ingreso=rango_ingreso,
             tiene_beca_previa=beca_previa,
             completado=True,
             **extra_formulario,

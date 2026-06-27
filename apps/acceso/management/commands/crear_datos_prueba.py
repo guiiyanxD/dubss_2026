@@ -1,5 +1,3 @@
-from decimal import Decimal
-
 from django.core.management.base import BaseCommand
 from django.utils import timezone
 
@@ -189,18 +187,12 @@ class Command(BaseCommand):
         formularios_def = [
             {
                 "email": "estudiante1@becas.com",
-                "situacion_laboral": FormularioSocioeconomico.SituacionLaboral.DESEMPLEADO,
-                "ingreso_mensual_familiar": Decimal("45000"),
                 "cantidad_familiares": 4,
-                "situacion_habitacional": FormularioSocioeconomico.SituacionHabitacional.ALQUILANDO,
                 "tiene_beca_previa": False,
             },
             {
                 "email": "estudiante2@becas.com",
-                "situacion_laboral": FormularioSocioeconomico.SituacionLaboral.EMPLEADO,
-                "ingreso_mensual_familiar": Decimal("120000"),
                 "cantidad_familiares": 2,
-                "situacion_habitacional": FormularioSocioeconomico.SituacionHabitacional.PROPIETARIO,
                 "tiene_beca_previa": True,
             },
         ]
@@ -213,10 +205,7 @@ class Command(BaseCommand):
                 continue
             FormularioSocioeconomico.objects.create(
                 usuario=usuario,
-                situacion_laboral=defn["situacion_laboral"],
-                ingreso_mensual_familiar=defn["ingreso_mensual_familiar"],
                 cantidad_familiares=defn["cantidad_familiares"],
-                situacion_habitacional=defn["situacion_habitacional"],
                 tiene_beca_previa=defn["tiene_beca_previa"],
                 completado=True,
             )

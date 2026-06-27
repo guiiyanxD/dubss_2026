@@ -1,5 +1,3 @@
-from decimal import Decimal
-
 import pytest
 
 from apps.acceso.models import Usuario
@@ -34,10 +32,7 @@ def estudiante(db):
 def formulario(db, estudiante):
     return FormularioSocioeconomico.objects.create(
         usuario=estudiante,
-        situacion_laboral=FormularioSocioeconomico.SituacionLaboral.EMPLEADO,
-        ingreso_mensual_familiar=Decimal("40000"),
         cantidad_familiares=3,
-        situacion_habitacional=FormularioSocioeconomico.SituacionHabitacional.PROPIETARIO,
         tiene_beca_previa=False,
         completado=True,
     )
@@ -137,10 +132,7 @@ def test_enviar_postulacion_numero_referencia_secuencial(
     estudiante2 = Usuario.objects.create_user(email="est2@test.com", password="pass")
     formulario2 = FormularioSocioeconomico.objects.create(
         usuario=estudiante2,
-        situacion_laboral=FormularioSocioeconomico.SituacionLaboral.EMPLEADO,
-        ingreso_mensual_familiar=Decimal("30000"),
         cantidad_familiares=2,
-        situacion_habitacional=FormularioSocioeconomico.SituacionHabitacional.ALQUILANDO,
         tiene_beca_previa=False,
         completado=True,
     )

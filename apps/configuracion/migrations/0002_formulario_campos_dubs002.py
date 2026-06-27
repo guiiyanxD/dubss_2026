@@ -32,14 +32,7 @@ class Migration(migrations.Migration):
             name="dependencia_economica",
             field=models.CharField(
                 blank=True,
-                choices=[
-                    ("INDEPENDIENTE", "Independiente"),
-                    ("PADRE_MADRE", "Solo de padre o madre"),
-                    ("OTRO_FAMILIAR", "Otro familiar"),
-                    ("PAREJA", "De la pareja"),
-                    ("AMBOS_PADRES", "Ambos padres"),
-                ],
-                max_length=20,
+                max_length=50,
                 verbose_name="¿de quién depende usted?",
             ),
         ),
@@ -136,15 +129,7 @@ class Migration(migrations.Migration):
             name="tipo_ocupacion_sosten",
             field=models.CharField(
                 blank=True,
-                choices=[
-                    ("ASALARIADO_FORMAL", "Asalariado formal"),
-                    ("ASALARIADO_INFORMAL", "Asalariado informal"),
-                    ("COMERCIANTE_MAYORISTA", "Comerciante mayorista"),
-                    ("RENTISTA", "Rentista"),
-                    ("COMERCIANTE_MINORISTA", "Comerciante minorista"),
-                    ("AGRICULTOR", "Agricultor"),
-                ],
-                max_length=25,
+                max_length=50,
                 verbose_name="ocupación de quien lo sostiene económicamente",
             ),
         ),
@@ -153,14 +138,7 @@ class Migration(migrations.Migration):
             name="tipo_tenencia_vivienda",
             field=models.CharField(
                 blank=True,
-                choices=[
-                    ("HERENCIA", "Herencia"),
-                    ("DE_LOS_PADRES", "De los padres"),
-                    ("CEDIDA", "Cedida"),
-                    ("ANTICRETICO", "Anticrético"),
-                    ("ALQUILER", "Alquiler"),
-                ],
-                max_length=20,
+                max_length=50,
                 verbose_name="tenencia de la vivienda",
             ),
         ),

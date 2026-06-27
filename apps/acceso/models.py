@@ -33,6 +33,8 @@ class Usuario(AbstractUser):
 
     username = None
     email = models.EmailField("correo electrónico", unique=True)
+    cargo = models.CharField("cargo", max_length=100, blank=True)
+    departamento = models.CharField("departamento", max_length=100, blank=True)
 
     USERNAME_FIELD = "email"
     REQUIRED_FIELDS = []

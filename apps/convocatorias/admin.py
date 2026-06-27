@@ -8,11 +8,13 @@ class BecaAdmin(admin.ModelAdmin):
     list_display = [
         "nombre",
         "activa",
-        "peso_ingreso",
-        "peso_desempleo",
-        "peso_familiares",
-        "peso_no_propietario",
-        "peso_sin_beca_previa",
+        "peso_dependencia_economica",
+        "peso_grupo_familiar",
+        "peso_procedencia",
+        "peso_tenencia_vivienda",
+        "peso_infraestructura",
+        "peso_otro_beneficio",
+        "peso_discapacidad",
     ]
     list_filter = ["activa"]
     search_fields = ["nombre"]

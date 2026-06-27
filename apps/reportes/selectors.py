@@ -24,12 +24,7 @@ ESTADOS_RECHAZO = [
     Postulacion.Estado.RECHAZADA_DOCUMENTACION,
 ]
 
-CAMPOS_DISTRIBUCION_SOCIOECONOMICA = {
-    "situacion_laboral": FormularioSocioeconomico.SituacionLaboral,
-    "situacion_habitacional": FormularioSocioeconomico.SituacionHabitacional,
-    "dependencia_economica": FormularioSocioeconomico.DependenciaEconomica,
-    "tipo_tenencia_vivienda": FormularioSocioeconomico.TipoTenenciaVivienda,
-}
+CAMPOS_DISTRIBUCION_SOCIOECONOMICA: dict = {}
 
 
 def _filtrar_postulaciones(*, convocatoria=None, fecha_desde=None, fecha_hasta=None):
@@ -217,11 +212,13 @@ def documento_mayor_rechazo():
 
 
 def distribucion_ingreso_familiar(*, convocatoria=None):
-    """Lista de ingresos mensuales familiares de los postulantes (para histograma)."""
-    valores = _formularios_de_postulantes(convocatoria=convocatoria).values_list(
-        "ingreso_mensual_familiar", flat=True
+    """Lista de rangos de ingreso de los postulantes (para histograma)."""
+    valores = (
+        _formularios_de_postulantes(convocatoria=convocatoria)
+        .exclude(rango_ingreso__isnull=True)
+        .values_list("rango_ingreso__nombre", flat=True)
     )
-    return {"valores": [float(v) for v in valores]}
+    return {"valores": list(valores)}
 
 
 def distribucion_puntaje_socioeconomico(*, convocatoria=None):
@@ -235,23 +232,23 @@ def distribucion_puntaje_socioeconomico(*, convocatoria=None):
 
 
 def distribucion_choices(campo, *, convocatoria=None):
-    """Distribución de postulantes según un campo TextChoices del formulario socioeconómico.
+    """Distribución de postulantes según un campo FK del formulario socioeconómico.
 
     Args:
-        campo: Una clave de `CAMPOS_DISTRIBUCION_SOCIOECONOMICA`.
+        campo: Nombre de un campo ForeignKey en FormularioSocioeconomico (ej. 'dependencia_economica').
         convocatoria: Filtra a los postulantes de esta convocatoria (None = todas).
     """
-    enum = CAMPOS_DISTRIBUCION_SOCIOECONOMICA[campo]
     formularios = _formularios_de_postulantes(convocatoria=convocatoria)
-    conteos = dict(
-        formularios.exclude(**{campo: ""}).values_list(campo).annotate(total=Count("id"))
+    nombre_campo = f"{campo}__nombre"
+    rows = (
+        formularios
+        .exclude(**{f"{campo}__isnull": True})
+        .values_list(nombre_campo)
+        .annotate(total=Count("id"))
+        .order_by(nombre_campo)
     )
-    etiquetas, valores = [], []
-    for choice in enum:
-        total = conteos.get(choice.value, 0)
-        if total:
-            etiquetas.append(choice.label)
-            valores.append(total)
+    etiquetas = [r[0] for r in rows]
+    valores = [r[1] for r in rows]
     return {"etiquetas": etiquetas, "valores": valores}
 
 
@@ -415,8 +412,6 @@ def buscar_postulantes(
     anio_ingreso_max=None,
     cantidad_familiares_min=None,
     cantidad_familiares_max=None,
-    situacion_laboral=None,
-    situacion_habitacional=None,
     tiene_discapacidad=None,
     tiene_hijos=None,
     estado_postulacion=None,
@@ -448,10 +443,6 @@ def buscar_postulantes(
         qs = qs.filter(formulario__cantidad_familiares__gte=cantidad_familiares_min)
     if cantidad_familiares_max is not None:
         qs = qs.filter(formulario__cantidad_familiares__lte=cantidad_familiares_max)
-    if situacion_laboral:
-        qs = qs.filter(formulario__situacion_laboral=situacion_laboral)
-    if situacion_habitacional:
-        qs = qs.filter(formulario__situacion_habitacional=situacion_habitacional)
     if tiene_discapacidad is not None:
         qs = qs.filter(formulario__tiene_discapacidad=tiene_discapacidad)
     if tiene_hijos is not None:

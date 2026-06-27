@@ -5,7 +5,6 @@ estudiantes — para reducir el riesgo de exponer datos personales vía prompt i
 El modelo no puede ejecutar nada fuera de `CATALOGO` (lista blanca).
 """
 
-from apps.configuracion.models import FormularioSocioeconomico
 from apps.convocatorias.models import Convocatoria
 from apps.postulaciones.models import Postulacion
 
@@ -66,8 +65,6 @@ def _generar_reporte_postulantes(
     anio_ingreso_max=None,
     cantidad_familiares_min=None,
     cantidad_familiares_max=None,
-    situacion_laboral=None,
-    situacion_habitacional=None,
     tiene_discapacidad=None,
     tiene_hijos=None,
     estado_postulacion=None,
@@ -88,8 +85,6 @@ def _generar_reporte_postulantes(
         anio_ingreso_max=anio_ingreso_max,
         cantidad_familiares_min=cantidad_familiares_min,
         cantidad_familiares_max=cantidad_familiares_max,
-        situacion_laboral=situacion_laboral,
-        situacion_habitacional=situacion_habitacional,
         tiene_discapacidad=tiene_discapacidad,
         tiene_hijos=tiene_hijos,
         estado_postulacion=estado_postulacion,
@@ -145,16 +140,6 @@ _REPORTE_POSTULANTES_PARAMS = {
         "cantidad_familiares_max": {
             "type": "integer",
             "description": "Cantidad máxima de integrantes del grupo familiar.",
-        },
-        "situacion_laboral": {
-            "type": "string",
-            "enum": list(FormularioSocioeconomico.SituacionLaboral.values),
-            "description": "Situación laboral del postulante.",
-        },
-        "situacion_habitacional": {
-            "type": "string",
-            "enum": list(FormularioSocioeconomico.SituacionHabitacional.values),
-            "description": "Situación habitacional del postulante.",
         },
         "tiene_discapacidad": {
             "type": "boolean",
