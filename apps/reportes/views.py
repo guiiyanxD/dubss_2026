@@ -7,7 +7,7 @@ from django.utils.text import slugify
 from apps.convocatorias.models import Convocatoria
 from apps.postulaciones.models import Postulacion
 
-from . import services
+from .services import ReporteService
 from .forms import FiltroDashboardForm, GenerarRankingForm
 from .models import Conversacion, ResumenIA
 
@@ -53,7 +53,7 @@ def panel_view(request):
 def procesar_view(request, convocatoria_pk):
     if request.method == "POST":
         convocatoria = get_object_or_404(Convocatoria, pk=convocatoria_pk)
-        cantidad = services.procesar_formularios_socioeconomicos(convocatoria=convocatoria)
+        cantidad = ReporteService.procesar_formularios_socioeconomicos(convocatoria=convocatoria)
         if cantidad:
             messages.success(request, f"{cantidad} postulaciones procesadas con puntaje.")
         else:
@@ -82,7 +82,7 @@ def ranking_view(request, convocatoria_pk):
     form = GenerarRankingForm(request.POST or None, convocatoria=convocatoria)
 
     if request.method == "POST" and form.is_valid():
-        postulaciones_resultado = services.generar_ranking(
+        postulaciones_resultado = ReporteService.generar_ranking(
             convocatoria=convocatoria,
             beca=form.cleaned_data["beca"],
             cupo=form.cleaned_data["cupo"],
@@ -118,7 +118,7 @@ def ranking_view(request, convocatoria_pk):
 @director_required
 def exportar_excel_view(request, convocatoria_pk):
     convocatoria = get_object_or_404(Convocatoria, pk=convocatoria_pk)
-    xlsx_bytes = services.exportar_ranking_excel(convocatoria=convocatoria)
+    xlsx_bytes = ReporteService.exportar_ranking_excel(convocatoria=convocatoria)
     nombre = f"ranking_{slugify(convocatoria.nombre)}.xlsx"
     response = HttpResponse(
         xlsx_bytes,
@@ -131,7 +131,7 @@ def exportar_excel_view(request, convocatoria_pk):
 @director_required
 def exportar_pdf_view(request, convocatoria_pk):
     convocatoria = get_object_or_404(Convocatoria, pk=convocatoria_pk)
-    pdf_bytes = services.exportar_reporte_pdf(convocatoria=convocatoria, request=request)
+    pdf_bytes = ReporteService.exportar_reporte_pdf(convocatoria=convocatoria, request=request)
     nombre = f"reporte_{slugify(convocatoria.nombre)}.pdf"
     response = HttpResponse(pdf_bytes, content_type="application/pdf")
     response["Content-Disposition"] = f'attachment; filename="{nombre}"'
@@ -147,7 +147,7 @@ def dashboard_view(request):
         fecha_desde = form.cleaned_data["fecha_desde"]
         fecha_hasta = form.cleaned_data["fecha_hasta"]
 
-    contexto = services.construir_contexto_dashboard(
+    contexto = ReporteService.construir_contexto_dashboard(
         convocatoria=convocatoria, fecha_desde=fecha_desde, fecha_hasta=fecha_hasta
     )
     contexto["form"] = form
@@ -160,7 +160,7 @@ def dashboard_view(request):
 def resumen_ia_solicitar_view(request):
     convocatoria_pk = request.POST.get("convocatoria")
     convocatoria = get_object_or_404(Convocatoria, pk=convocatoria_pk) if convocatoria_pk else None
-    resumen = services.solicitar_resumen_ia(
+    resumen = ReporteService.solicitar_resumen_ia(
         usuario=request.user,
         convocatoria=convocatoria,
         prompt_adicional=request.POST.get("prompt_adicional", ""),
@@ -177,7 +177,7 @@ def resumen_ia_estado_view(request, resumen_pk):
 @director_required
 def resumen_ia_exportar_pdf_view(request, resumen_pk):
     resumen = get_object_or_404(ResumenIA, pk=resumen_pk)
-    pdf_bytes = services.exportar_resumen_ia_pdf(resumen_pk=resumen.pk)
+    pdf_bytes = ReporteService.exportar_resumen_ia_pdf(resumen_pk=resumen.pk)
     nombre = f"resumen_ia_{resumen.pk}.pdf"
     response = HttpResponse(pdf_bytes, content_type="application/pdf")
     response["Content-Disposition"] = f'attachment; filename="{nombre}"'
@@ -187,7 +187,7 @@ def resumen_ia_exportar_pdf_view(request, resumen_pk):
 @director_required
 def chat_lista_view(request):
     if request.method == "POST":
-        conversacion = services.crear_conversacion(usuario=request.user)
+        conversacion = ReporteService.crear_conversacion(usuario=request.user)
         return redirect("reportes:chat_detalle", conversacion_pk=conversacion.pk)
 
     conversaciones = Conversacion.objects.filter(usuario=request.user)
@@ -201,7 +201,7 @@ def chat_detalle_view(request, conversacion_pk):
     if request.method == "POST":
         contenido = request.POST.get("contenido", "").strip()
         if contenido:
-            services.enviar_mensaje_chat(conversacion=conversacion, contenido=contenido)
+            ReporteService.enviar_mensaje_chat(conversacion=conversacion, contenido=contenido)
         return render(request, "reportes/_chat_mensajes.html", {"conversacion": conversacion})
 
     return render(request, "reportes/chat_detalle.html", {"conversacion": conversacion})

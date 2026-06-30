@@ -7,7 +7,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 
 from apps.acceso.models import Usuario
 
-from . import services
+from .services import UsuarioService
 from .exceptions import (
     EmailYaRegistradoError,
     NombreRolDuplicadoError,
@@ -32,7 +32,7 @@ def lista_usuarios_view(request):
     estado = request.GET.get("estado", "")
     busqueda = request.GET.get("q", "")
 
-    qs = services.listar_usuarios(
+    qs = UsuarioService.listar_usuarios(
         excluir_pk=request.user.pk,
         rol=rol or None,
         estado=estado or None,
@@ -62,7 +62,7 @@ def crear_usuario_view(request):
     form = CrearUsuarioForm(request.POST or None)
     if request.method == "POST" and form.is_valid():
         try:
-            usuario = services.registrar_usuario(
+            usuario = UsuarioService.registrar_usuario(
                 email=form.cleaned_data["email"],
                 first_name=form.cleaned_data["first_name"],
                 last_name=form.cleaned_data["last_name"],
@@ -94,7 +94,7 @@ def editar_usuario_view(request, pk):
     form = EditarUsuarioForm(request.POST or None, initial=initial)
     if request.method == "POST" and form.is_valid():
         try:
-            services.editar_usuario(
+            UsuarioService.editar_usuario(
                 usuario=usuario,
                 first_name=form.cleaned_data["first_name"],
                 last_name=form.cleaned_data["last_name"],
@@ -111,7 +111,7 @@ def editar_usuario_view(request, pk):
 def activar_usuario_view(request, pk):
     if request.method == "POST":
         usuario = get_object_or_404(Usuario, pk=pk)
-        services.activar_usuario(usuario=usuario)
+        UsuarioService.activar_usuario(usuario=usuario)
         messages.success(request, f"Usuario {usuario.email} activado.")
     return redirect("usuarios:lista")
 
@@ -120,14 +120,14 @@ def activar_usuario_view(request, pk):
 def desactivar_usuario_view(request, pk):
     if request.method == "POST":
         usuario = get_object_or_404(Usuario, pk=pk)
-        services.desactivar_usuario(usuario=usuario)
+        UsuarioService.desactivar_usuario(usuario=usuario)
         messages.success(request, f"Usuario {usuario.email} desactivado.")
     return redirect("usuarios:lista")
 
 
 @director_required
 def lista_roles_view(request):
-    roles = services.listar_roles()
+    roles = UsuarioService.listar_roles()
     return render(request, "usuarios/roles.html", {"roles": roles})
 
 
@@ -136,7 +136,7 @@ def crear_rol_view(request):
     form = RolForm(request.POST or None)
     if request.method == "POST" and form.is_valid():
         try:
-            services.crear_rol(nombre=form.cleaned_data["nombre"])
+            UsuarioService.crear_rol(nombre=form.cleaned_data["nombre"])
             messages.success(request, "Rol creado correctamente.")
             return redirect("usuarios:roles")
         except NombreRolDuplicadoError as e:
@@ -150,7 +150,7 @@ def editar_rol_view(request, pk):
     form = RolForm(request.POST or None, initial={"nombre": grupo.name})
     if request.method == "POST" and form.is_valid():
         try:
-            services.editar_rol(grupo=grupo, nombre=form.cleaned_data["nombre"])
+            UsuarioService.editar_rol(grupo=grupo, nombre=form.cleaned_data["nombre"])
             messages.success(request, "Rol actualizado correctamente.")
             return redirect("usuarios:roles")
         except NombreRolDuplicadoError as e:
@@ -167,7 +167,7 @@ def eliminar_rol_view(request, pk):
     if request.method == "POST":
         grupo = get_object_or_404(Group, pk=pk)
         try:
-            services.eliminar_rol(grupo=grupo)
+            UsuarioService.eliminar_rol(grupo=grupo)
             messages.success(request, f"Rol '{grupo.name}' eliminado.")
         except RolConMiembrosError as e:
             messages.error(request, str(e))

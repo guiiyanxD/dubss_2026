@@ -8,7 +8,10 @@ from apps.configuracion.models import (
     TipoOcupacionSosten,
     TipoTenenciaVivienda,
 )
-from apps.configuracion.services import guardar_formulario, guardar_integrantes_familiares
+from apps.configuracion.services import ConfiguracionService
+
+guardar_formulario = ConfiguracionService.guardar_formulario
+guardar_integrantes_familiares = ConfiguracionService.guardar_integrantes_familiares
 
 
 @pytest.fixture

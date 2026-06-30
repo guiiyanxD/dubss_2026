@@ -4,7 +4,9 @@ import pytest
 
 from apps.acceso.models import Usuario
 from apps.notificaciones.models import Notificacion
-from apps.notificaciones.services import enviar_notificacion
+from apps.notificaciones.services import NotificacionService
+
+enviar_notificacion = NotificacionService.enviar_notificacion
 
 
 @pytest.fixture

@@ -3,7 +3,7 @@ from django.contrib.auth.decorators import login_required, user_passes_test
 from django.core.paginator import Paginator
 from django.shortcuts import get_object_or_404, redirect, render
 
-from . import services
+from .services import ConvocatoriaService
 from .exceptions import (
     ConvocatoriaNoModificableError,
     ConvocatoriaYaCerradaError,
@@ -57,7 +57,7 @@ def lista_convocatorias_view(request):
     estado = request.GET.get("estado", "") if not es_estudiante else ""
     busqueda = request.GET.get("q", "")
 
-    qs = services.listar_convocatorias(
+    qs = ConvocatoriaService.listar_convocatorias(
         para_estudiante=es_estudiante,
         estado=estado or None,
         busqueda=busqueda or None,
@@ -90,7 +90,7 @@ def crear_convocatoria_view(request):
     form = ConvocatoriaForm(request.POST or None)
     if request.method == "POST" and form.is_valid():
         try:
-            convocatoria = services.crear_convocatoria(
+            convocatoria = ConvocatoriaService.crear_convocatoria(
                 nombre=form.cleaned_data["nombre"],
                 descripcion=form.cleaned_data.get("descripcion", ""),
                 fecha_apertura=form.cleaned_data["fecha_apertura"],
@@ -115,7 +115,7 @@ def editar_convocatoria_view(request, pk):
     form = ConvocatoriaForm(request.POST or None, initial=initial)
     if request.method == "POST" and form.is_valid():
         try:
-            services.editar_convocatoria(
+            ConvocatoriaService.editar_convocatoria(
                 convocatoria=convocatoria,
                 nombre=form.cleaned_data["nombre"],
                 descripcion=form.cleaned_data.get("descripcion", ""),
@@ -156,7 +156,7 @@ def publicar_convocatoria_view(request, pk):
     if request.method == "POST":
         convocatoria = get_object_or_404(Convocatoria, pk=pk)
         try:
-            services.publicar_convocatoria(convocatoria=convocatoria)
+            ConvocatoriaService.publicar_convocatoria(convocatoria=convocatoria)
             messages.success(request, f"Convocatoria '{convocatoria.nombre}' publicada.")
         except ConvocatoriaNoModificableError as e:
             messages.error(request, str(e))
@@ -168,7 +168,7 @@ def cerrar_convocatoria_view(request, pk):
     if request.method == "POST":
         convocatoria = get_object_or_404(Convocatoria, pk=pk)
         try:
-            services.cerrar_convocatoria(convocatoria=convocatoria)
+            ConvocatoriaService.cerrar_convocatoria(convocatoria=convocatoria)
             messages.success(request, f"Convocatoria '{convocatoria.nombre}' cerrada.")
         except ConvocatoriaYaCerradaError as e:
             messages.error(request, str(e))
@@ -219,7 +219,7 @@ def crear_beca_view(request):
     form = BecaForm(request.POST or None, initial={"activa": True})
     if request.method == "POST" and form.is_valid():
         try:
-            services.crear_beca(
+            ConvocatoriaService.crear_beca(
                 nombre=form.cleaned_data["nombre"],
                 descripcion=form.cleaned_data.get("descripcion", ""),
                 **{campo: form.cleaned_data[campo] for campo in _CAMPOS_PESO},
@@ -245,7 +245,7 @@ def editar_beca_view(request, pk):
     form = BecaForm(request.POST or None, initial=initial)
     if request.method == "POST" and form.is_valid():
         try:
-            services.editar_beca(
+            ConvocatoriaService.editar_beca(
                 beca=beca,
                 nombre=form.cleaned_data["nombre"],
                 descripcion=form.cleaned_data.get("descripcion", ""),
@@ -309,7 +309,7 @@ def crear_tipo_documento_view(request):
     form = TipoDocumentoForm(request.POST or None, initial={"activo": True})
     if request.method == "POST" and form.is_valid():
         try:
-            services.crear_tipo_documento(
+            ConvocatoriaService.crear_tipo_documento(
                 nombre=form.cleaned_data["nombre"],
                 descripcion=form.cleaned_data.get("descripcion", ""),
             )
@@ -331,7 +331,7 @@ def editar_tipo_documento_view(request, pk):
     form = TipoDocumentoForm(request.POST or None, initial=initial)
     if request.method == "POST" and form.is_valid():
         try:
-            services.editar_tipo_documento(
+            ConvocatoriaService.editar_tipo_documento(
                 tipo_documento=tipo,
                 nombre=form.cleaned_data["nombre"],
                 descripcion=form.cleaned_data.get("descripcion", ""),

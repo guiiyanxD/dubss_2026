@@ -1,0 +1,32 @@
+<tr id="fila-{{ slug }}-{{ pk }}">
+    <form hx-post="{% url 'configuracion:catalogo-editar' slug pk %}"
+          hx-target="#fila-{{ slug }}-{{ pk }}"
+          hx-swap="outerHTML">
+        {% csrf_token %}
+        <td>
+            {{ form.nombre }}
+            {% if form.nombre.errors %}
+                <div class="text-danger small">{{ form.nombre.errors.0 }}</div>
+            {% endif %}
+        </td>
+        {% for field in form %}
+            {% if field.name != "nombre" and field.name != "valor_puntaje" and field.name != "activo" %}
+            <td>{{ field }}</td>
+            {% endif %}
+        {% endfor %}
+        <td class="text-end">{{ form.valor_puntaje }}</td>
+        <td class="text-center">{{ form.activo }}</td>
+        <td class="text-center text-nowrap">
+            <button type="submit" class="btn btn-sm btn-success py-0 px-2 me-1" title="Guardar">
+                <i class="bi bi-check-lg"></i>
+            </button>
+            <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-2"
+                hx-get="{% url 'configuracion:catalogo-cancelar' slug pk %}"
+                hx-target="#fila-{{ slug }}-{{ pk }}"
+                hx-swap="outerHTML"
+                title="Cancelar">
+                <i class="bi bi-x-lg"></i>
+            </button>
+        </td>
+    </form>
+</tr>

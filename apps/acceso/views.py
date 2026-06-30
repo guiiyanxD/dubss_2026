@@ -2,7 +2,7 @@ from django.contrib import messages
 from django.contrib.auth import login
 from django.shortcuts import redirect, render
 
-from . import services
+from .services import AccesoService
 from .exceptions import (
     ContrasenasNoCoincidenceError,
     EmailYaRegistradoError,
@@ -25,7 +25,7 @@ def registro_estudiante_view(request):
     form = RegistroEstudianteForm(request.POST or None)
     if request.method == "POST" and form.is_valid():
         try:
-            usuario = services.autorregistrar_estudiante(
+            usuario = AccesoService.autorregistrar_estudiante(
                 email=form.cleaned_data["email"],
                 password1=form.cleaned_data["password1"],
                 password2=form.cleaned_data["password2"],

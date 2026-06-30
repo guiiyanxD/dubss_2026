@@ -1,0 +1,35 @@
+<tr id="fila-{{ slug }}-{{ entrada.pk }}" {% if not entrada.activo %}class="text-muted"{% endif %}>
+    <td>{{ entrada.nombre }}</td>
+    {% for val in entrada.extras %}<td class="text-end">{{ val|default:"—" }}</td>{% endfor %}
+    <td class="text-end fw-bold">{{ entrada.valor_puntaje }}</td>
+    <td class="text-center">
+        <button type="button" class="btn btn-link p-0"
+            hx-post="{% url 'configuracion:catalogo-toggle' slug entrada.pk %}"
+            hx-target="#fila-{{ slug }}-{{ entrada.pk }}"
+            hx-swap="outerHTML"
+            title="{% if entrada.activo %}Desactivar{% else %}Activar{% endif %}">
+            {% if entrada.activo %}
+                <i class="bi bi-check-circle-fill text-success fs-5"></i>
+            {% else %}
+                <i class="bi bi-x-circle text-secondary fs-5"></i>
+            {% endif %}
+        </button>
+    </td>
+    <td class="text-center text-nowrap">
+        <button type="button" class="btn btn-sm btn-outline-primary py-0 px-1 me-1"
+            hx-get="{% url 'configuracion:catalogo-editar' slug entrada.pk %}"
+            hx-target="#fila-{{ slug }}-{{ entrada.pk }}"
+            hx-swap="outerHTML"
+            title="Editar">
+            <i class="bi bi-pencil"></i>
+        </button>
+        <button type="button" class="btn btn-sm btn-outline-danger py-0 px-1"
+            hx-delete="{% url 'configuracion:catalogo-eliminar' slug entrada.pk %}"
+            hx-target="#fila-{{ slug }}-{{ entrada.pk }}"
+            hx-swap="outerHTML"
+            hx-confirm="¿Eliminar '{{ entrada.nombre }}'? Esta acción no se puede deshacer."
+            title="Eliminar">
+            <i class="bi bi-trash"></i>
+        </button>
+    </td>
+</tr>

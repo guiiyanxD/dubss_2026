@@ -22,6 +22,8 @@ lib64/
 *.png
 *.jpeg
 *.jpg
+/docs
+*.puml
 # Django
 *.log
 local_settings.py

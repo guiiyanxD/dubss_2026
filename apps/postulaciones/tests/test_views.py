@@ -8,7 +8,7 @@ from django.utils import timezone
 from apps.acceso.models import Usuario
 from apps.configuracion.models import FormularioSocioeconomico
 from apps.convocatorias.models import Beca, Convocatoria
-from apps.postulaciones import services
+from apps.postulaciones.services import PostulacionService as services
 from apps.postulaciones.models import Postulacion
 
 

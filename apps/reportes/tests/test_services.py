@@ -12,7 +12,7 @@ from apps.configuracion.models import (
 )
 from apps.convocatorias.models import Beca, Convocatoria
 from apps.postulaciones.models import Postulacion
-from apps.reportes import services
+from apps.reportes.services import ReporteService as services
 from apps.reportes.models import MensajeChat, ResumenIA
 
 

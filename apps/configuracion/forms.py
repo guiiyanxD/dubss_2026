@@ -3,10 +3,118 @@ from django import forms
 from .models import (
     FormularioSocioeconomico,
     OpcionDependencia,
+    OpcionDiscapacidad,
+    OpcionOtroBeneficio,
+    RangoGrupoFamiliar,
     RangoIngreso,
+    RangoInfraestructura,
     TipoOcupacionSosten,
     TipoTenenciaVivienda,
 )
+
+# ---------------------------------------------------------------------------
+# Forms para edición de catálogos socioeconómicos (Director)
+# ---------------------------------------------------------------------------
+
+_W_TEXT = {"class": "form-control form-control-sm"}
+_W_NUM = {"class": "form-control form-control-sm text-end"}
+_W_CHECK = {"class": "form-check-input"}
+
+
+class OpcionDependenciaForm(forms.ModelForm):
+    class Meta:
+        model = OpcionDependencia
+        fields = ["nombre", "valor_puntaje", "activo"]
+        widgets = {
+            "nombre": forms.TextInput(attrs=_W_TEXT),
+            "valor_puntaje": forms.NumberInput(attrs=_W_NUM),
+            "activo": forms.CheckboxInput(attrs=_W_CHECK),
+        }
+
+
+class TipoOcupacionSostenForm(forms.ModelForm):
+    class Meta:
+        model = TipoOcupacionSosten
+        fields = ["nombre", "documento_adjuntar", "valor_puntaje", "activo"]
+        widgets = {
+            "nombre": forms.TextInput(attrs=_W_TEXT),
+            "documento_adjuntar": forms.TextInput(attrs=_W_TEXT),
+            "valor_puntaje": forms.NumberInput(attrs=_W_NUM),
+            "activo": forms.CheckboxInput(attrs=_W_CHECK),
+        }
+
+
+class RangoIngresoForm(forms.ModelForm):
+    class Meta:
+        model = RangoIngreso
+        fields = ["nombre", "monto_minimo", "monto_maximo", "valor_puntaje", "activo"]
+        widgets = {
+            "nombre": forms.TextInput(attrs=_W_TEXT),
+            "monto_minimo": forms.NumberInput(attrs=_W_NUM),
+            "monto_maximo": forms.NumberInput(attrs=_W_NUM),
+            "valor_puntaje": forms.NumberInput(attrs=_W_NUM),
+            "activo": forms.CheckboxInput(attrs=_W_CHECK),
+        }
+
+
+class RangoGrupoFamiliarForm(forms.ModelForm):
+    class Meta:
+        model = RangoGrupoFamiliar
+        fields = ["nombre", "cantidad_minima", "cantidad_maxima", "valor_puntaje", "activo"]
+        widgets = {
+            "nombre": forms.TextInput(attrs=_W_TEXT),
+            "cantidad_minima": forms.NumberInput(attrs=_W_NUM),
+            "cantidad_maxima": forms.NumberInput(attrs=_W_NUM),
+            "valor_puntaje": forms.NumberInput(attrs=_W_NUM),
+            "activo": forms.CheckboxInput(attrs=_W_CHECK),
+        }
+
+
+class TipoTenenciaViviendaForm(forms.ModelForm):
+    class Meta:
+        model = TipoTenenciaVivienda
+        fields = ["nombre", "documento_adjuntar", "valor_puntaje", "activo"]
+        widgets = {
+            "nombre": forms.TextInput(attrs=_W_TEXT),
+            "documento_adjuntar": forms.TextInput(attrs=_W_TEXT),
+            "valor_puntaje": forms.NumberInput(attrs=_W_NUM),
+            "activo": forms.CheckboxInput(attrs=_W_CHECK),
+        }
+
+
+class RangoInfraestructuraForm(forms.ModelForm):
+    class Meta:
+        model = RangoInfraestructura
+        fields = ["nombre", "total_minimo", "total_maximo", "valor_puntaje", "activo"]
+        widgets = {
+            "nombre": forms.TextInput(attrs=_W_TEXT),
+            "total_minimo": forms.NumberInput(attrs=_W_NUM),
+            "total_maximo": forms.NumberInput(attrs=_W_NUM),
+            "valor_puntaje": forms.NumberInput(attrs=_W_NUM),
+            "activo": forms.CheckboxInput(attrs=_W_CHECK),
+        }
+
+
+class OpcionOtroBeneficioForm(forms.ModelForm):
+    class Meta:
+        model = OpcionOtroBeneficio
+        fields = ["nombre", "valor_puntaje", "activo"]
+        widgets = {
+            "nombre": forms.TextInput(attrs=_W_TEXT),
+            "valor_puntaje": forms.NumberInput(attrs=_W_NUM),
+            "activo": forms.CheckboxInput(attrs=_W_CHECK),
+        }
+
+
+class OpcionDiscapacidadForm(forms.ModelForm):
+    class Meta:
+        model = OpcionDiscapacidad
+        fields = ["nombre", "valor_puntaje", "activo"]
+        widgets = {
+            "nombre": forms.TextInput(attrs=_W_TEXT),
+            "valor_puntaje": forms.NumberInput(attrs=_W_NUM),
+            "activo": forms.CheckboxInput(attrs=_W_CHECK),
+        }
 
 
 class FormularioSocioeconomicoForm(forms.Form):

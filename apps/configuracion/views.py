@@ -1,10 +1,22 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, user_passes_test
-from django.http import HttpResponseBadRequest
-from django.shortcuts import redirect, render
+from django.http import HttpResponse, HttpResponseBadRequest
+from django.shortcuts import get_object_or_404, redirect, render
+from django.views.decorators.http import require_POST
 
-from . import services
-from .forms import FormularioSocioeconomicoForm, IntegranteFamiliarFormSet
+from .services import ConfiguracionService
+from .forms import (
+    FormularioSocioeconomicoForm,
+    IntegranteFamiliarFormSet,
+    OpcionDependenciaForm,
+    OpcionDiscapacidadForm,
+    OpcionOtroBeneficioForm,
+    RangoGrupoFamiliarForm,
+    RangoIngresoForm,
+    RangoInfraestructuraForm,
+    TipoOcupacionSostenForm,
+    TipoTenenciaViviendaForm,
+)
 from .models import (
     FormularioSocioeconomico,
     OpcionDependencia,
@@ -18,6 +30,91 @@ from .models import (
 )
 
 _es_director = user_passes_test(lambda u: u.is_superuser or u.get_rol() == "Director")
+
+# ---------------------------------------------------------------------------
+# Registro de catálogos socioeconómicos
+# ---------------------------------------------------------------------------
+
+REGISTRO_CATALOGOS = {
+    "dependencia": {
+        "modelo": OpcionDependencia,
+        "form_class": OpcionDependenciaForm,
+        "titulo": "Dependencia económica",
+        "seccion": "Sección 2a°",
+        "columnas_extra": [],
+    },
+    "ocupacion": {
+        "modelo": TipoOcupacionSosten,
+        "form_class": TipoOcupacionSostenForm,
+        "titulo": "Tipo de ocupación del sostén",
+        "seccion": "Sección 2b°",
+        "columnas_extra": [{"key": "documento_adjuntar", "label": "Documento a adjuntar"}],
+    },
+    "ingreso": {
+        "modelo": RangoIngreso,
+        "form_class": RangoIngresoForm,
+        "titulo": "Rango de ingreso mensual familiar",
+        "seccion": "Sección 2c°",
+        "columnas_extra": [
+            {"key": "monto_minimo", "label": "Mínimo (Bs.)"},
+            {"key": "monto_maximo", "label": "Máximo (Bs.)"},
+        ],
+    },
+    "grupo-familiar": {
+        "modelo": RangoGrupoFamiliar,
+        "form_class": RangoGrupoFamiliarForm,
+        "titulo": "Grupo familiar",
+        "seccion": "Sección 3°",
+        "columnas_extra": [
+            {"key": "cantidad_minima", "label": "Mín."},
+            {"key": "cantidad_maxima", "label": "Máx."},
+        ],
+    },
+    "tenencia": {
+        "modelo": TipoTenenciaVivienda,
+        "form_class": TipoTenenciaViviendaForm,
+        "titulo": "Tenencia de vivienda",
+        "seccion": "Sección 6°",
+        "columnas_extra": [{"key": "documento_adjuntar", "label": "Documento a adjuntar"}],
+    },
+    "infraestructura": {
+        "modelo": RangoInfraestructura,
+        "form_class": RangoInfraestructuraForm,
+        "titulo": "Infraestructura de la vivienda",
+        "seccion": "Sección 7°",
+        "columnas_extra": [
+            {"key": "total_minimo", "label": "Ambientes mín."},
+            {"key": "total_maximo", "label": "Ambientes máx."},
+        ],
+    },
+    "otro-beneficio": {
+        "modelo": OpcionOtroBeneficio,
+        "form_class": OpcionOtroBeneficioForm,
+        "titulo": "Otro beneficio universitario",
+        "seccion": "Sección 8°",
+        "columnas_extra": [],
+    },
+    "discapacidad": {
+        "modelo": OpcionDiscapacidad,
+        "form_class": OpcionDiscapacidadForm,
+        "titulo": "Discapacidad",
+        "seccion": "Sección 9°",
+        "columnas_extra": [],
+    },
+}
+
+
+def _get_catalogo_o_404(slug):
+    entry = REGISTRO_CATALOGOS.get(slug)
+    if entry is None:
+        from django.http import Http404
+        raise Http404(f"Catálogo '{slug}' no existe.")
+    return entry
+
+
+def _serializar_entrada(obj, columnas_extra):
+    extras = [getattr(obj, col["key"], None) for col in columnas_extra]
+    return {"pk": obj.pk, "nombre": obj.nombre, "valor_puntaje": obj.valor_puntaje, "activo": obj.activo, "extras": extras}
 
 CAMPOS_FORMULARIO = [
     "cantidad_familiares",
@@ -69,7 +166,7 @@ def formulario_view(request):
     )
 
     if request.method == "POST" and form.is_valid() and formset.is_valid():
-        formulario = services.guardar_formulario(
+        formulario = ConfiguracionService.guardar_formulario(
             estudiante=request.user,
             **{campo: form.cleaned_data.get(campo) for campo in CAMPOS_FORMULARIO},
         )
@@ -84,7 +181,7 @@ def formulario_view(request):
             for f in formset.forms
             if f.cleaned_data and not f.cleaned_data.get("DELETE") and f.tiene_datos()
         ]
-        services.guardar_integrantes_familiares(formulario=formulario, integrantes=integrantes)
+        ConfiguracionService.guardar_integrantes_familiares(formulario=formulario, integrantes=integrantes)
         messages.success(request, "Formulario guardado correctamente.")
         return redirect("configuracion:formulario")
 
@@ -95,97 +192,117 @@ def formulario_view(request):
     )
 
 
-def _serializar_catalogo(qs, campos_extra=None):
-    campos_extra = campos_extra or []
-    filas = []
-    for obj in qs:
-        extras = [getattr(obj, campo, None) for campo in campos_extra]
-        filas.append({
-            "nombre": obj.nombre,
-            "valor_puntaje": obj.valor_puntaje,
-            "activo": obj.activo,
-            "extras": extras,
+@login_required
+@_es_director
+def catalogos_socioeconomicos_view(request):
+    catalogos = []
+    for slug, entry in REGISTRO_CATALOGOS.items():
+        modelo = entry["modelo"]
+        cols = entry["columnas_extra"]
+        filas = [_serializar_entrada(obj, cols) for obj in modelo.objects.all()]
+        catalogos.append({
+            "slug": slug,
+            "titulo": entry["titulo"],
+            "seccion": entry["seccion"],
+            "columnas_extra": cols,
+            "filas": filas,
         })
-    return filas
+    return render(request, "configuracion/catalogos.html", {"catalogos": catalogos})
 
 
 @login_required
 @_es_director
-def catalogos_socioeconomicos_view(request):
-    catalogos = [
-        {
-            "titulo": "Dependencia económica",
-            "seccion": "Sección 2a°",
-            "admin_url": "configuracion/opciondependencia",
-            "columnas_extra": [],
-            "filas": _serializar_catalogo(OpcionDependencia.objects.all()),
-        },
-        {
-            "titulo": "Tipo de ocupación del sostén",
-            "seccion": "Sección 2b°",
-            "admin_url": "configuracion/tipocupacionsosten",
-            "columnas_extra": [],
-            "filas": _serializar_catalogo(TipoOcupacionSosten.objects.all()),
-        },
-        {
-            "titulo": "Rango de ingreso mensual familiar",
-            "seccion": "Sección 2c°",
-            "admin_url": "configuracion/rangoingreso",
-            "columnas_extra": [
-                {"key": "monto_minimo", "label": "Mínimo (Bs.)"},
-                {"key": "monto_maximo", "label": "Máximo (Bs.)"},
-            ],
-            "filas": _serializar_catalogo(
-                RangoIngreso.objects.all(), ["monto_minimo", "monto_maximo"]
-            ),
-        },
-        {
-            "titulo": "Grupo familiar",
-            "seccion": "Sección 3°",
-            "admin_url": "configuracion/rangogrupofamiliar",
-            "columnas_extra": [
-                {"key": "cantidad_minima", "label": "Mín. miembros"},
-                {"key": "cantidad_maxima", "label": "Máx. miembros"},
-            ],
-            "filas": _serializar_catalogo(
-                RangoGrupoFamiliar.objects.all(), ["cantidad_minima", "cantidad_maxima"]
-            ),
-        },
-        {
-            "titulo": "Tenencia de vivienda",
-            "seccion": "Sección 6°",
-            "admin_url": "configuracion/tipotenancivienda",
-            "columnas_extra": [],
-            "filas": _serializar_catalogo(TipoTenenciaVivienda.objects.all()),
-        },
-        {
-            "titulo": "Infraestructura de la vivienda",
-            "seccion": "Sección 7°",
-            "admin_url": "configuracion/rangoinfraestructura",
-            "columnas_extra": [
-                {"key": "total_minimo", "label": "Ambientes mín."},
-                {"key": "total_maximo", "label": "Ambientes máx."},
-            ],
-            "filas": _serializar_catalogo(
-                RangoInfraestructura.objects.all(), ["total_minimo", "total_maximo"]
-            ),
-        },
-        {
-            "titulo": "Otro beneficio universitario",
-            "seccion": "Sección 8°",
-            "admin_url": "configuracion/opcionotrobeneficio",
-            "columnas_extra": [],
-            "filas": _serializar_catalogo(OpcionOtroBeneficio.objects.all()),
-        },
-        {
-            "titulo": "Discapacidad",
-            "seccion": "Sección 9°",
-            "admin_url": "configuracion/opciondiscapacidad",
-            "columnas_extra": [],
-            "filas": _serializar_catalogo(OpcionDiscapacidad.objects.all()),
-        },
-    ]
-    return render(request, "configuracion/catalogos.html", {"catalogos": catalogos})
+def catalogo_nueva_entrada_view(request, slug):
+    entry = _get_catalogo_o_404(slug)
+    form_class = entry["form_class"]
+    cols = entry["columnas_extra"]
+
+    if request.method == "POST":
+        form = form_class(request.POST)
+        if form.is_valid():
+            try:
+                obj = ConfiguracionService.crear_entrada_catalogo(entry["modelo"], form.cleaned_data)
+                entrada = _serializar_entrada(obj, cols)
+                return render(request, "configuracion/_catalogo_fila.html", {
+                    "entrada": entrada, "slug": slug, "columnas_extra": cols,
+                })
+            except ValueError as e:
+                form.add_error("nombre", str(e))
+        return render(request, "configuracion/_catalogo_form_nuevo.html", {
+            "form": form, "slug": slug, "columnas_extra": cols,
+        }, status=422)
+
+    form = form_class()
+    return render(request, "configuracion/_catalogo_form_nuevo.html", {
+        "form": form, "slug": slug, "columnas_extra": cols,
+    })
+
+
+@login_required
+@_es_director
+def catalogo_editar_entrada_view(request, slug, pk):
+    entry = _get_catalogo_o_404(slug)
+    modelo = entry["modelo"]
+    form_class = entry["form_class"]
+    cols = entry["columnas_extra"]
+    obj = get_object_or_404(modelo, pk=pk)
+
+    if request.method == "POST":
+        form = form_class(request.POST, instance=obj)
+        if form.is_valid():
+            try:
+                obj = ConfiguracionService.editar_entrada_catalogo(obj, form.cleaned_data)
+                entrada = _serializar_entrada(obj, cols)
+                return render(request, "configuracion/_catalogo_fila.html", {
+                    "entrada": entrada, "slug": slug, "columnas_extra": cols,
+                })
+            except ValueError as e:
+                form.add_error("nombre", str(e))
+        return render(request, "configuracion/_catalogo_fila_editar.html", {
+            "form": form, "slug": slug, "pk": pk, "columnas_extra": cols,
+        }, status=422)
+
+    form = form_class(instance=obj)
+    return render(request, "configuracion/_catalogo_fila_editar.html", {
+        "form": form, "slug": slug, "pk": pk, "columnas_extra": cols,
+    })
+
+
+@login_required
+@_es_director
+@require_POST
+def catalogo_toggle_activo_view(request, slug, pk):
+    entry = _get_catalogo_o_404(slug)
+    obj = get_object_or_404(entry["modelo"], pk=pk)
+    cols = entry["columnas_extra"]
+    obj = ConfiguracionService.toggle_activo_catalogo(obj)
+    entrada = _serializar_entrada(obj, cols)
+    return render(request, "configuracion/_catalogo_fila.html", {
+        "entrada": entrada, "slug": slug, "columnas_extra": cols,
+    })
+
+
+@login_required
+@_es_director
+def catalogo_cancelar_edicion_view(request, slug, pk):
+    entry = _get_catalogo_o_404(slug)
+    obj = get_object_or_404(entry["modelo"], pk=pk)
+    cols = entry["columnas_extra"]
+    entrada = _serializar_entrada(obj, cols)
+    return render(request, "configuracion/_catalogo_fila.html", {
+        "entrada": entrada, "slug": slug, "columnas_extra": cols,
+    })
+
+
+@login_required
+@_es_director
+def catalogo_eliminar_entrada_view(request, slug, pk):
+    entry = _get_catalogo_o_404(slug)
+    obj = get_object_or_404(entry["modelo"], pk=pk)
+    if request.method in ("POST", "DELETE"):
+        ConfiguracionService.eliminar_entrada_catalogo(obj)
+        return HttpResponse("")
+    return HttpResponseBadRequest()
 
 
 @login_required

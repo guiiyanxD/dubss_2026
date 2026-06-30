@@ -7,7 +7,7 @@ from django.urls import reverse
 
 from apps.convocatorias.models import Beca, Convocatoria
 
-from . import services
+from .services import PostulacionService
 from .exceptions import (
     BecaNoDisponibleError,
     ConstanciaNoDisponibleError,
@@ -41,7 +41,7 @@ staff_required = user_passes_test(_es_staff, login_url="/accounts/login/")
 
 @login_required
 def mis_postulaciones_view(request):
-    postulaciones = services.listar_postulaciones_estudiante(estudiante=request.user)
+    postulaciones = PostulacionService.listar_postulaciones_estudiante(estudiante=request.user)
     return render(request, "postulaciones/mis_postulaciones.html", {"postulaciones": postulaciones})
 
 
@@ -54,7 +54,7 @@ def iniciar_postulacion_view(request, convocatoria_pk):
 
     if request.method == "POST" and form.is_valid():
         try:
-            postulacion = services.iniciar_postulacion(
+            postulacion = PostulacionService.iniciar_postulacion(
                 estudiante=request.user,
                 convocatoria=convocatoria,
                 beca=form.cleaned_data["beca"],
@@ -104,7 +104,7 @@ def enviar_postulacion_view(request, pk):
     if request.method == "POST":
         postulacion = get_object_or_404(Postulacion, pk=pk, estudiante=request.user)
         try:
-            services.enviar_postulacion(postulacion=postulacion)
+            PostulacionService.enviar_postulacion(postulacion=postulacion)
             messages.success(request, "Postulación enviada correctamente.")
         except TransicionEstadoInvalidaError as e:
             messages.error(request, str(e))
@@ -124,7 +124,7 @@ def imprimir_constancia_view(request, pk):
         return redirect("postulaciones:lista")
 
     try:
-        pdf_bytes = services.generar_constancia_pdf(postulacion=postulacion)
+        pdf_bytes = PostulacionService.generar_constancia_pdf(postulacion=postulacion)
     except ConstanciaNoDisponibleError as e:
         messages.error(request, str(e))
         return redirect("postulaciones:detalle", pk=pk)
@@ -148,7 +148,7 @@ def cola_revision_view(request):
     beca_id = request.GET.get("beca", "")
     busqueda = request.GET.get("q", "")
 
-    qs = services.listar_cola_revision(
+    qs = PostulacionService.listar_cola_revision(
         estado=estado or None,
         convocatoria_id=convocatoria_id or None,
         beca_id=beca_id or None,
@@ -158,7 +158,7 @@ def cola_revision_view(request):
     # Opciones de los selects: solo convocatorias/becas con al menos una
     # postulación en la cola completa (sin filtrar), para no ofrecer
     # combinaciones que siempre den resultado vacío.
-    base_qs = services.listar_cola_revision()
+    base_qs = PostulacionService.listar_cola_revision()
     convocatorias_disponibles = (
         Convocatoria.objects.filter(postulaciones__in=base_qs).distinct().order_by("nombre")
     )
@@ -212,7 +212,7 @@ def verificar_identidad_view(request, pk):
         form = VerificarIdentidadForm(request.POST)
         if form.is_valid():
             try:
-                services.verificar_identidad(
+                PostulacionService.verificar_identidad(
                     postulacion=postulacion,
                     aprobar=form.cleaned_data["aprobar"] == "1",
                     observaciones=form.cleaned_data.get("observaciones", ""),
@@ -232,7 +232,7 @@ def validar_documento_view(request, doc_pk):
             messages.error(request, "Acción inválida.")
             return redirect("postulaciones:revision", pk=documento.postulacion.pk)
         try:
-            services.validar_documento(
+            PostulacionService.validar_documento(
                 documento=documento,
                 aprobar=aprobar_raw == "1",
             )
@@ -250,7 +250,7 @@ def historial_postulaciones_view(request):
     beca_id = request.GET.get("beca", "")
     busqueda = request.GET.get("q", "")
 
-    qs = services.listar_historial_postulaciones(
+    qs = PostulacionService.listar_historial_postulaciones(
         estado=estado or None,
         convocatoria_id=convocatoria_id or None,
         beca_id=beca_id or None,
@@ -290,7 +290,7 @@ def digitalizar_documento_view(request, doc_pk):
 
     if request.method == "POST" and form.is_valid():
         try:
-            services.digitalizar_documento(
+            PostulacionService.digitalizar_documento(
                 documento=documento,
                 archivo=request.FILES["archivo"],
             )

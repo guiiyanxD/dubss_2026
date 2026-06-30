@@ -10,16 +10,16 @@ from apps.convocatorias.exceptions import (
     PonderacionInvalidaError,
 )
 from apps.convocatorias.models import Convocatoria
-from apps.convocatorias.services import (
-    cerrar_convocatoria,
-    cerrar_convocatorias_vencidas,
-    crear_beca,
-    crear_convocatoria,
-    crear_tipo_documento,
-    editar_beca,
-    editar_convocatoria,
-    publicar_convocatoria,
-)
+from apps.convocatorias.services import ConvocatoriaService
+
+cerrar_convocatoria = ConvocatoriaService.cerrar_convocatoria
+cerrar_convocatorias_vencidas = ConvocatoriaService.cerrar_convocatorias_vencidas
+crear_beca = ConvocatoriaService.crear_beca
+crear_convocatoria = ConvocatoriaService.crear_convocatoria
+crear_tipo_documento = ConvocatoriaService.crear_tipo_documento
+editar_beca = ConvocatoriaService.editar_beca
+editar_convocatoria = ConvocatoriaService.editar_convocatoria
+publicar_convocatoria = ConvocatoriaService.publicar_convocatoria
 
 
 @pytest.fixture

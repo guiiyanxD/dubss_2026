@@ -11,7 +11,7 @@ from apps.acceso.exceptions import (
 )
 from apps.acceso.forms import RegistroEstudianteForm
 from apps.acceso.models import PerfilEstudiante, Usuario
-from apps.acceso.services import autorregistrar_estudiante
+from apps.acceso.services import AccesoService
 
 
 @pytest.fixture(autouse=True)
@@ -43,7 +43,7 @@ def _datos_validos(**overrides):
 
 
 def test_autorregistrar_estudiante_exitoso(db):
-    usuario = autorregistrar_estudiante(**_datos_validos())
+    usuario = AccesoService.autorregistrar_estudiante(**_datos_validos())
 
     assert isinstance(usuario, Usuario)
     assert usuario.email == "estudiante@test.com"
@@ -52,26 +52,26 @@ def test_autorregistrar_estudiante_exitoso(db):
 
 
 def test_autorregistrar_estudiante_persiste_fecha_nacimiento(db):
-    usuario = autorregistrar_estudiante(**_datos_validos())
+    usuario = AccesoService.autorregistrar_estudiante(**_datos_validos())
     perfil = PerfilEstudiante.objects.get(usuario=usuario)
     assert perfil.fecha_nacimiento == datetime.date(2000, 1, 15)
 
 
 def test_autorregistrar_estudiante_contrasenas_distintas(db):
     with pytest.raises(ContrasenasNoCoincidenceError):
-        autorregistrar_estudiante(**_datos_validos(password2="Diferente999!"))
+        AccesoService.autorregistrar_estudiante(**_datos_validos(password2="Diferente999!"))
 
 
 def test_autorregistrar_estudiante_email_duplicado(db):
-    autorregistrar_estudiante(**_datos_validos())
+    AccesoService.autorregistrar_estudiante(**_datos_validos())
     with pytest.raises(EmailYaRegistradoError):
-        autorregistrar_estudiante(**_datos_validos(nro_registro="216002401"))
+        AccesoService.autorregistrar_estudiante(**_datos_validos(nro_registro="216002401"))
 
 
 def test_autorregistrar_estudiante_nro_registro_duplicado(db):
-    autorregistrar_estudiante(**_datos_validos())
+    AccesoService.autorregistrar_estudiante(**_datos_validos())
     with pytest.raises(NroRegistroYaRegistradoError):
-        autorregistrar_estudiante(**_datos_validos(email="otro@test.com"))
+        AccesoService.autorregistrar_estudiante(**_datos_validos(email="otro@test.com"))
 
 
 # ---------------------------------------------------------------------------

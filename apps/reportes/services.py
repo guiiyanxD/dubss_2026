@@ -24,35 +24,17 @@ def _max_puntaje_catalogo(modelo):
     return resultado["maximo"] or 1
 
 
-def _lookup_rango(modelo, valor):
-    """Busca el rango activo que contiene 'valor'. Retorna valor_puntaje o 0 si no hay coincidencia."""
-    from django.db.models import Q
-
-    rango = (
-        modelo.objects.filter(activo=True)
-        .filter(
-            Q(cantidad_minima__lte=valor) if hasattr(modelo._meta.get_field("cantidad_minima"), "name") else Q(total_minimo__lte=valor),
-        )
-        .filter(
-            Q(cantidad_maxima__isnull=True) | Q(cantidad_maxima__gte=valor)
-            if hasattr(modelo._meta.get_field("cantidad_minima" if hasattr(modelo, "cantidad_minima") else "total_minimo"), "name")
-            else Q(total_maximo__isnull=True) | Q(total_maximo__gte=valor)
-        )
-        .first()
-    )
-    return rango.valor_puntaje if rango else 0
-
-
 def _lookup_rango_grupo_familiar(valor):
     from django.db.models import Q
 
     from apps.configuracion.models import RangoGrupoFamiliar
 
-    rango = RangoGrupoFamiliar.objects.filter(activo=True).filter(
-        cantidad_minima__lte=valor
-    ).filter(
-        Q(cantidad_maxima__isnull=True) | Q(cantidad_maxima__gte=valor)
-    ).first()
+    rango = (
+        RangoGrupoFamiliar.objects.filter(activo=True)
+        .filter(cantidad_minima__lte=valor)
+        .filter(Q(cantidad_maxima__isnull=True) | Q(cantidad_maxima__gte=valor))
+        .first()
+    )
     return rango.valor_puntaje if rango else 0
 
 
@@ -61,515 +43,13 @@ def _lookup_rango_infraestructura(total_ambientes):
 
     from apps.configuracion.models import RangoInfraestructura
 
-    rango = RangoInfraestructura.objects.filter(activo=True).filter(
-        total_minimo__lte=total_ambientes
-    ).filter(
-        Q(total_maximo__isnull=True) | Q(total_maximo__gte=total_ambientes)
-    ).first()
+    rango = (
+        RangoInfraestructura.objects.filter(activo=True)
+        .filter(total_minimo__lte=total_ambientes)
+        .filter(Q(total_maximo__isnull=True) | Q(total_maximo__gte=total_ambientes))
+        .first()
+    )
     return rango.valor_puntaje if rango else 0
-
-
-def procesar_formularios_socioeconomicos(*, convocatoria):
-    """CU23 — Calcula el puntaje socioeconómico para postulaciones APROBADAS.
-
-    Usa los catálogos configurables del Director (valor_puntaje por opción) y los pesos
-    por sección de cada Beca (CU15). Fórmula por sección:
-        puntaje_seccion = (valor_opcion / max_catalogo) × peso_seccion
-    Puntaje final = suma de todas las secciones (máximo teórico = 100).
-
-    Actualiza cada Postulacion con su puntaje y la marca como PROCESADA.
-
-    Args:
-        convocatoria: Instancia de Convocatoria.
-
-    Returns:
-        Cantidad de postulaciones procesadas.
-    """
-    import pandas as pd
-
-    from apps.configuracion.models import (
-        OpcionDependencia,
-        OpcionDiscapacidad,
-        OpcionOtroBeneficio,
-        RangoGrupoFamiliar,
-        RangoInfraestructura,
-        RangoIngreso,
-        TipoOcupacionSosten,
-        TipoTenenciaVivienda,
-    )
-
-    postulaciones = list(
-        Postulacion.objects.filter(
-            convocatoria=convocatoria,
-            estado=Postulacion.Estado.APROBADA,
-        ).select_related(
-            "formulario",
-            "formulario__dependencia_economica",
-            "formulario__tipo_ocupacion_sosten",
-            "formulario__rango_ingreso",
-            "formulario__tipo_tenencia_vivienda",
-            "beca",
-        )
-    )
-
-    if not postulaciones:
-        return 0
-
-    # Máximos de cada catálogo (calculados una sola vez)
-    max_dep = _max_puntaje_catalogo(OpcionDependencia)
-    max_ocup = _max_puntaje_catalogo(TipoOcupacionSosten)
-    max_ing = _max_puntaje_catalogo(RangoIngreso)
-    max_grp = _max_puntaje_catalogo(RangoGrupoFamiliar)
-    max_ten = _max_puntaje_catalogo(TipoTenenciaVivienda)
-    max_inf = _max_puntaje_catalogo(RangoInfraestructura)
-    max_ben = _max_puntaje_catalogo(OpcionOtroBeneficio)
-    max_dis = _max_puntaje_catalogo(OpcionDiscapacidad)
-
-    # Opciones booleanas (Sí/No) para secciones 8° y 9°
-    beneficio_si = OpcionOtroBeneficio.objects.filter(activo=True, nombre="Sí").first()
-    beneficio_no = OpcionOtroBeneficio.objects.filter(activo=True, nombre="No").first()
-    discapacidad_si = OpcionDiscapacidad.objects.filter(activo=True, nombre="Sí").first()
-    discapacidad_no = OpcionDiscapacidad.objects.filter(activo=True, nombre="No").first()
-
-    def _v(opcion_fk):
-        return opcion_fk.valor_puntaje if opcion_fk else 0
-
-    def _score_beneficio(tiene_beca):
-        opcion = beneficio_si if tiene_beca else beneficio_no
-        return _v(opcion)
-
-    def _score_discapacidad(tiene_disc):
-        opcion = discapacidad_si if tiene_disc else discapacidad_no
-        return _v(opcion)
-
-    data = []
-    for p in postulaciones:
-        f = p.formulario
-        b = p.beca
-
-        total_ambientes = (f.dormitorios or 0) + (f.banos or 0) + (f.comedores or 0) + (f.salas or 0) + (f.patios or 0)
-
-        v_dep = _v(f.dependencia_economica)
-        v_ocup = _v(f.tipo_ocupacion_sosten)
-        v_ing = _v(f.rango_ingreso)
-        score_dep = ((v_dep / max_dep) + (v_ocup / max_ocup) + (v_ing / max_ing)) / 3
-
-        v_grp = _lookup_rango_grupo_familiar(f.cantidad_familiares)
-        v_ten = _v(f.tipo_tenencia_vivienda)
-        v_inf = _lookup_rango_infraestructura(total_ambientes)
-        v_ben = _score_beneficio(f.tiene_beca_previa)
-        v_dis = _score_discapacidad(f.tiene_discapacidad)
-        score_proc = 100 if f.lugar_procedencia else 0
-
-        puntaje = (
-            score_dep * b.peso_dependencia_economica
-            + (v_grp / max_grp) * b.peso_grupo_familiar
-            + (score_proc / 100) * b.peso_procedencia
-            + (v_ten / max_ten) * b.peso_tenencia_vivienda
-            + (v_inf / max_inf) * b.peso_infraestructura
-            + (v_ben / max_ben) * b.peso_otro_beneficio
-            + (v_dis / max_dis) * b.peso_discapacidad
-        )
-        data.append({"id": p.pk, "puntaje": round(puntaje, 2)})
-
-    df = pd.DataFrame(data)
-
-    for _, row in df.iterrows():
-        Postulacion.objects.filter(pk=int(row["id"])).update(
-            puntaje_socioeconomico=Decimal(str(row["puntaje"])),
-            estado=Postulacion.Estado.PROCESADA,
-        )
-
-    return len(postulaciones)
-
-
-def generar_ranking(*, convocatoria, beca, cupo, cupo_espera=None):
-    """CU24 — Ordena postulaciones PROCESADAS de una Beca y asigna resultados finales.
-
-    El ranking se calcula POR BECA (no para toda la convocatoria junta): con pesos de
-    ponderación configurables por beca (CU15), los puntajes de becas distintas ya no
-    son comparables entre sí, así que cada beca compite solo contra sí misma.
-
-    Args:
-        convocatoria: Instancia de Convocatoria.
-        beca: Instancia de Beca (debe estar asociada a la convocatoria).
-        cupo: Número de postulaciones a adjudicar.
-        cupo_espera: Número de postulaciones en lista de espera (default = cupo).
-
-    Returns:
-        Lista de Postulacion con estado actualizado, ordenadas por puntaje.
-    """
-    if cupo_espera is None:
-        cupo_espera = cupo
-
-    postulaciones = list(
-        Postulacion.objects.filter(
-            convocatoria=convocatoria,
-            beca=beca,
-            estado=Postulacion.Estado.PROCESADA,
-        )
-        .select_related("estudiante", "beca")
-        .order_by("-puntaje_socioeconomico", "fecha_envio")
-    )
-
-    for i, p in enumerate(postulaciones):
-        if i < cupo:
-            p.estado = Postulacion.Estado.ADJUDICADA
-        elif i < cupo + cupo_espera:
-            p.estado = Postulacion.Estado.LISTA_ESPERA
-        else:
-            p.estado = Postulacion.Estado.NO_ADJUDICADA
-
-        p.save(update_fields=["estado"])
-        resultado_adjudicacion.send(sender=Postulacion, postulacion=p)
-
-    return postulaciones
-
-
-def exportar_ranking_excel(*, convocatoria):
-    """CU25 — Genera un archivo Excel con el ranking de la convocatoria.
-
-    Args:
-        convocatoria: Instancia de Convocatoria.
-
-    Returns:
-        Bytes del archivo .xlsx.
-    """
-    postulaciones = (
-        Postulacion.objects.filter(
-            convocatoria=convocatoria,
-            estado__in=[
-                Postulacion.Estado.ADJUDICADA,
-                Postulacion.Estado.LISTA_ESPERA,
-                Postulacion.Estado.NO_ADJUDICADA,
-            ],
-        )
-        .select_related("estudiante", "beca")
-        .order_by("-puntaje_socioeconomico", "fecha_envio")
-    )
-
-    wb = Workbook()
-    ws = wb.active
-    ws.title = "Ranking"
-
-    header_fill = PatternFill(start_color="1F4E79", end_color="1F4E79", fill_type="solid")
-    header_font = Font(color="FFFFFF", bold=True)
-
-    headers = ["Pos.", "Apellido", "Nombre", "Email", "Beca", "Puntaje", "Resultado"]
-    col_widths = [6, 20, 20, 30, 25, 12, 20]
-
-    for col, (header, width) in enumerate(zip(headers, col_widths), start=1):
-        cell = ws.cell(row=1, column=col, value=header)
-        cell.fill = header_fill
-        cell.font = header_font
-        cell.alignment = Alignment(horizontal="center")
-        ws.column_dimensions[cell.column_letter].width = width
-
-    estado_colores = {
-        Postulacion.Estado.ADJUDICADA: "C6EFCE",
-        Postulacion.Estado.LISTA_ESPERA: "FFEB9C",
-        Postulacion.Estado.NO_ADJUDICADA: "FFC7CE",
-    }
-
-    for pos, p in enumerate(postulaciones, start=1):
-        fila = [
-            pos,
-            p.estudiante.last_name,
-            p.estudiante.first_name,
-            p.estudiante.email,
-            p.beca.nombre,
-            float(p.puntaje_socioeconomico or 0),
-            p.get_estado_display(),
-        ]
-        color = estado_colores.get(p.estado, "FFFFFF")
-        fill = PatternFill(start_color=color, end_color=color, fill_type="solid")
-        for col, valor in enumerate(fila, start=1):
-            cell = ws.cell(row=pos + 1, column=col, value=valor)
-            cell.fill = fill
-
-    buf = io.BytesIO()
-    wb.save(buf)
-    buf.seek(0)
-    return buf.read()
-
-
-def exportar_reporte_pdf(*, convocatoria, request=None):
-    """CU26 — Genera un PDF con el reporte de la convocatoria.
-
-    Args:
-        convocatoria: Instancia de Convocatoria.
-        request: HttpRequest opcional (para URLs absolutas en el PDF).
-
-    Returns:
-        Bytes del archivo .pdf.
-    """
-    from weasyprint import HTML
-
-    postulaciones = list(
-        Postulacion.objects.filter(
-            convocatoria=convocatoria,
-            estado__in=[
-                Postulacion.Estado.ADJUDICADA,
-                Postulacion.Estado.LISTA_ESPERA,
-                Postulacion.Estado.NO_ADJUDICADA,
-            ],
-        )
-        .select_related("estudiante", "beca")
-        .order_by("-puntaje_socioeconomico", "fecha_envio")
-    )
-
-    total = len(postulaciones)
-    adjudicadas = sum(1 for p in postulaciones if p.estado == Postulacion.Estado.ADJUDICADA)
-    espera = sum(1 for p in postulaciones if p.estado == Postulacion.Estado.LISTA_ESPERA)
-    no_adjudicadas = total - adjudicadas - espera
-
-    contexto = {
-        "convocatoria": convocatoria,
-        "postulaciones": postulaciones,
-        "total": total,
-        "adjudicadas": adjudicadas,
-        "espera": espera,
-        "no_adjudicadas": no_adjudicadas,
-    }
-
-    html_str = render_to_string("reportes/reporte_pdf.html", contexto)
-    pdf_bytes = HTML(string=html_str).write_pdf()
-    return pdf_bytes
-
-
-def construir_contexto_dashboard(*, convocatoria=None, fecha_desde=None, fecha_hasta=None):
-    """CU26 — Orquesta selectors.py + charts.py para el dashboard de KPIs.
-
-    Args:
-        convocatoria: Instancia de Convocatoria para filtrar, o None para todas.
-        fecha_desde: date mínima de fecha_creacion a incluir, o None.
-        fecha_hasta: date máxima de fecha_creacion a incluir, o None.
-
-    Returns:
-        Dict listo para renderizar en dashboard.html / _dashboard_kpis.html.
-    """
-    filtro = {"convocatoria": convocatoria, "fecha_desde": fecha_desde, "fecha_hasta": fecha_hasta}
-
-    demanda_beca = selectors.postulaciones_por_beca(**filtro)
-    tasa_adj_conv = selectors.tasa_adjudicacion_por_convocatoria()
-    espera_conv = selectors.tamano_lista_espera_por_convocatoria()
-
-    embudo = selectors.embudo_estados(**filtro)
-    rechazos = selectors.desglose_rechazos(**filtro)
-    tiempos_etapa = selectors.tiempos_promedio_por_etapa(convocatoria=convocatoria)
-
-    validacion_doc = selectors.validacion_por_tipo_documento()
-    mayor_rechazo = selectors.documento_mayor_rechazo()
-
-    ingreso = selectors.distribucion_ingreso_familiar(convocatoria=convocatoria)
-    puntaje = selectors.distribucion_puntaje_socioeconomico(convocatoria=convocatoria)
-    indicadores = selectors.indicadores_generales(convocatoria=convocatoria)
-
-    punto_corte = selectors.punto_corte_por_convocatoria()
-
-    carreras = selectors.postulantes_por_carrera(convocatoria=convocatoria)
-    tasa_carrera = selectors.tasa_adjudicacion_por_carrera()
-    anio_ingreso = selectors.postulantes_por_anio_ingreso(convocatoria=convocatoria)
-
-    entrega = selectors.tasa_entrega_notificaciones(
-        fecha_desde=fecha_desde, fecha_hasta=fecha_hasta
-    )
-    latencia = selectors.latencia_envio_notificaciones()
-
-    if convocatoria is not None:
-        comparacion = selectors.comparacion_puntaje_por_resultado(convocatoria=convocatoria)
-        grafico_comparacion = charts.fig_boxplot(
-            datos=comparacion, titulo="Puntaje socioeconómico por resultado"
-        )
-    else:
-        grafico_comparacion = charts.vacio(
-            "Seleccioná una convocatoria específica para comparar puntajes por resultado."
-        )
-
-    return {
-        "grafico_demanda_beca": charts.fig_barras(**demanda_beca, titulo="Postulaciones por beca"),
-        "grafico_tasa_adjudicacion_convocatoria": charts.fig_barras(
-            **tasa_adj_conv,
-            titulo="Tasa de adjudicación por convocatoria",
-            horizontal=True,
-            sufijo="%",
-        ),
-        "grafico_lista_espera": charts.fig_barras(
-            **espera_conv, titulo="Tamaño de lista de espera por convocatoria"
-        ),
-        "grafico_embudo": charts.fig_funnel(**embudo, titulo="Embudo de postulaciones"),
-        "grafico_rechazos": charts.fig_donut(**rechazos, titulo="Motivos de rechazo"),
-        "grafico_tiempos_etapa": charts.fig_barras(
-            **tiempos_etapa, titulo="Tiempo promedio entre etapas", horizontal=True, sufijo=" días"
-        ),
-        "grafico_validacion_documental": charts.fig_barras_apiladas(
-            etiquetas=validacion_doc["etiquetas"],
-            series={
-                "Aprobado": validacion_doc["aprobado"],
-                "Rechazado": validacion_doc["rechazado"],
-                "Pendiente": validacion_doc["pendiente"],
-            },
-            titulo="Validación documental por tipo",
-        ),
-        "documento_mayor_rechazo": mayor_rechazo,
-        "grafico_ingreso_familiar": charts.fig_histograma(
-            valores=ingreso["valores"],
-            titulo="Distribución de ingreso familiar",
-            eje_x="Ingreso mensual familiar (ARS)",
-        ),
-        "grafico_puntaje": charts.fig_histograma(
-            valores=puntaje["valores"],
-            titulo="Distribución de puntaje socioeconómico",
-            eje_x="Puntaje",
-        ),
-        "grafico_comparacion_puntaje": grafico_comparacion,
-        "graficos_distribucion_choices": {
-            campo: charts.fig_donut(
-                **selectors.distribucion_choices(campo, convocatoria=convocatoria), titulo=titulo
-            )
-            for campo, titulo in [
-                ("dependencia_economica", "Dependencia económica"),
-                ("tipo_tenencia_vivienda", "Tenencia de vivienda"),
-            ]
-        },
-        "indicadores_generales": indicadores,
-        "punto_corte_por_convocatoria": list(
-            zip(punto_corte["etiquetas"], punto_corte["valores"], strict=True)
-        ),
-        "grafico_carreras": charts.fig_barras(
-            **carreras, titulo="Postulantes por carrera (top 10)", horizontal=True
-        ),
-        "grafico_tasa_carrera": charts.fig_barras(
-            **tasa_carrera, titulo="Tasa de adjudicación por carrera", horizontal=True, sufijo="%"
-        ),
-        "grafico_anio_ingreso": charts.fig_barras(
-            **anio_ingreso, titulo="Postulantes por año de ingreso"
-        ),
-        "grafico_entrega_notificaciones": charts.fig_donut(
-            **entrega, titulo="Estado de envío de notificaciones"
-        ),
-        "latencia_notificaciones": latencia,
-    }
-
-
-def solicitar_resumen_ia(*, usuario, convocatoria=None, prompt_adicional=""):
-    """CU26 — Encola la generación de un resumen narrativo de KPIs con el LLM local.
-
-    Args:
-        usuario: Usuario (Director) que solicita el resumen.
-        convocatoria: Instancia de Convocatoria a resumir, o None para todas.
-        prompt_adicional: Instrucción libre opcional del Director.
-
-    Returns:
-        La instancia de ResumenIA creada (estado PENDIENTE).
-    """
-    resumen = ResumenIA.objects.create(
-        usuario=usuario, convocatoria=convocatoria, prompt_adicional=prompt_adicional
-    )
-    from .tasks import tarea_generar_resumen_ia
-
-    tarea_generar_resumen_ia.delay(resumen.pk)
-    return resumen
-
-
-def _contexto_kpis_para_prompt(*, convocatoria):
-    """Serializa los KPIs reales (selectors.py) en texto plano para el prompt del LLM."""
-    lineas = [
-        f"Embudo de postulaciones por estado: {selectors.embudo_estados(convocatoria=convocatoria)}",
-        f"Demanda por beca: {selectors.postulaciones_por_beca(convocatoria=convocatoria)}",
-        f"Motivos de rechazo: {selectors.desglose_rechazos(convocatoria=convocatoria)}",
-        f"Indicadores socioeconómicos: {selectors.indicadores_generales(convocatoria=convocatoria)}",
-    ]
-    if convocatoria is not None:
-        lineas.append(
-            f"Puntaje socioeconómico por resultado final: "
-            f"{selectors.comparacion_puntaje_por_resultado(convocatoria=convocatoria)}"
-        )
-    else:
-        lineas.append(
-            f"Tasa de adjudicación por convocatoria: {selectors.tasa_adjudicacion_por_convocatoria()}"
-        )
-    return "\n".join(lineas)
-
-
-def generar_resumen_con_llm(*, resumen_pk):
-    """Construye el prompt a partir de KPIs reales y llama al LLM local (Ollama).
-
-    Llamada exclusivamente por `tasks.tarea_generar_resumen_ia` (cola "ia", procesada
-    solo por el worker con acceso a Ollama).
-    """
-    resumen = ResumenIA.objects.select_related("convocatoria").get(pk=resumen_pk)
-    resumen.estado = ResumenIA.Estado.PROCESANDO
-    resumen.save(update_fields=["estado"])
-
-    try:
-        contexto = _contexto_kpis_para_prompt(convocatoria=resumen.convocatoria)
-        mensajes = [
-            {
-                "role": "system",
-                "content": (
-                    "Eres un asistente que redacta resúmenes ejecutivos para el Director "
-                    "de un sistema de becas universitarias. Basate ÚNICAMENTE en los datos "
-                    "numéricos provistos a continuación; no inventes cifras que no estén en "
-                    "el contexto. Responde en español, en un párrafo conciso."
-                ),
-            },
-            {"role": "user", "content": f"{contexto}\n\n{resumen.prompt_adicional}".strip()},
-        ]
-        respuesta = llm_client.chat(mensajes)
-        resumen.resultado = respuesta["message"]["content"]
-        resumen.estado = ResumenIA.Estado.COMPLETADO
-        resumen.fecha_completado = timezone.now()
-        resumen.save(update_fields=["resultado", "estado", "fecha_completado"])
-    except Exception as exc:
-        resumen.estado = ResumenIA.Estado.ERROR
-        resumen.error_detalle = str(exc)
-        resumen.save(update_fields=["estado", "error_detalle"])
-        raise
-
-
-def marcar_resumenes_ia_vencidos(*, minutos=10):
-    """Marca como ERROR los ResumenIA atascados en PENDIENTE/PROCESANDO (LLM no disponible).
-
-    Returns:
-        Cantidad de registros marcados como error.
-    """
-    limite = timezone.now() - datetime.timedelta(minutes=minutos)
-    return ResumenIA.objects.filter(
-        estado__in=[ResumenIA.Estado.PENDIENTE, ResumenIA.Estado.PROCESANDO],
-        fecha_creacion__lt=limite,
-    ).update(
-        estado=ResumenIA.Estado.ERROR,
-        error_detalle="El servicio de IA no está disponible en este momento. Intentá nuevamente más tarde.",
-    )
-
-
-def exportar_resumen_ia_pdf(*, resumen_pk):
-    """Genera un PDF con el resumen narrativo de IA + gráficos estáticos (Matplotlib).
-
-    Returns:
-        Bytes del archivo .pdf.
-    """
-    from weasyprint import HTML
-
-    resumen = ResumenIA.objects.select_related("convocatoria").get(pk=resumen_pk)
-
-    embudo = selectors.embudo_estados(convocatoria=resumen.convocatoria)
-    puntaje = selectors.distribucion_puntaje_socioeconomico(convocatoria=resumen.convocatoria)
-
-    contexto = {
-        "resumen": resumen,
-        "grafico_embudo": charts_matplotlib.grafico_embudo_estatico(
-            **embudo, titulo="Embudo de postulaciones"
-        ),
-        "grafico_puntaje": charts_matplotlib.grafico_histograma_estatico(
-            valores=puntaje["valores"],
-            titulo="Distribución de puntaje socioeconómico",
-            eje_x="Puntaje",
-        ),
-    }
-    html_str = render_to_string("reportes/resumen_ia_pdf.html", contexto)
-    return HTML(string=html_str).write_pdf()
 
 
 _COLUMNAS_POSTULANTES = [
@@ -583,48 +63,6 @@ _COLUMNAS_POSTULANTES = [
     ("beca", "Beca"),
     ("estado_postulacion", "Estado"),
 ]
-
-
-def generar_archivo_postulantes(*, filas, formato):
-    """Genera un archivo descargable con una lista de postulantes ya filtrada.
-
-    Args:
-        filas: Lista de dicts, como las que devuelve `selectors.buscar_postulantes`.
-        formato: "excel" o "pdf".
-
-    Returns:
-        Tupla (nombre_archivo, bytes).
-    """
-    marca = timezone.now().strftime("%Y%m%d%H%M%S")
-
-    if formato == "pdf":
-        from weasyprint import HTML
-
-        html_str = render_to_string("reportes/postulantes_pdf.html", {"filas": filas})
-        return f"reporte_postulantes_{marca}.pdf", HTML(string=html_str).write_pdf()
-
-    wb = Workbook()
-    ws = wb.active
-    ws.title = "Postulantes"
-
-    header_fill = PatternFill(start_color="1F4E79", end_color="1F4E79", fill_type="solid")
-    header_font = Font(color="FFFFFF", bold=True)
-    encabezados = [titulo for _, titulo in _COLUMNAS_POSTULANTES]
-    for col, encabezado in enumerate(encabezados, start=1):
-        cell = ws.cell(row=1, column=col, value=encabezado)
-        cell.fill = header_fill
-        cell.font = header_font
-        cell.alignment = Alignment(horizontal="center")
-
-    for fila_idx, fila in enumerate(filas, start=2):
-        for col, (clave, _) in enumerate(_COLUMNAS_POSTULANTES, start=1):
-            ws.cell(row=fila_idx, column=col, value=fila.get(clave))
-
-    buf = io.BytesIO()
-    wb.save(buf)
-    buf.seek(0)
-    return f"reporte_postulantes_{marca}.xlsx", buf.read()
-
 
 _ROL_A_OLLAMA = {
     MensajeChat.Rol.USUARIO: "user",
@@ -649,121 +87,692 @@ _PROMPT_SISTEMA_CHAT = (
 MAX_ITERACIONES_TOOLS = 5
 
 
-def crear_conversacion(*, usuario):
-    """Crea una conversación de chat vacía para el usuario."""
-    return Conversacion.objects.create(usuario=usuario)
+class ReporteService:
 
+    @staticmethod
+    def procesar_formularios_socioeconomicos(*, convocatoria):
+        """CU23 — Calcula el puntaje socioeconómico para postulaciones APROBADAS.
 
-def enviar_mensaje_chat(*, conversacion, contenido):
-    """Guarda el mensaje del usuario y encola el procesamiento con el LLM local.
+        Usa los catálogos configurables del Director (valor_puntaje por opción) y los pesos
+        por sección de cada Beca (CU15). Fórmula por sección:
+            puntaje_seccion = (valor_opcion / max_catalogo) × peso_seccion
+        Puntaje final = suma de todas las secciones (máximo teórico = 100).
 
-    Returns:
-        El MensajeChat del usuario recién creado.
-    """
-    mensaje = MensajeChat.objects.create(
-        conversacion=conversacion, rol=MensajeChat.Rol.USUARIO, contenido=contenido
-    )
-    if not conversacion.titulo:
-        conversacion.titulo = contenido[:60]
-    conversacion.save()  # actualiza fecha_actualizacion (auto_now) y, si corresponde, el título
+        Actualiza cada Postulacion con su puntaje y la marca como PROCESADA.
 
-    from .tasks import tarea_procesar_mensaje_chat
+        Args:
+            convocatoria: Instancia de Convocatoria.
 
-    tarea_procesar_mensaje_chat.delay(mensaje.pk)
-    return mensaje
+        Returns:
+            Cantidad de postulaciones procesadas.
+        """
+        import pandas as pd
 
-
-def procesar_mensaje_con_llm(*, mensaje_pk):
-    """Genera la respuesta del asistente para el último mensaje de una conversación.
-
-    Usa tool calling: si el modelo pide ejecutar una herramienta, se ejecuta vía
-    `llm_tools.ejecutar_tool` (lista blanca) y el resultado se le devuelve al modelo
-    antes de pedirle la respuesta final. Llamada exclusivamente por
-    `tasks.tarea_procesar_mensaje_chat` (cola "ia").
-    """
-    mensaje_usuario = MensajeChat.objects.select_related("conversacion").get(pk=mensaje_pk)
-    conversacion = mensaje_usuario.conversacion
-
-    historial = conversacion.mensajes.order_by("fecha_creacion")
-    mensajes_llm = [{"role": "system", "content": _PROMPT_SISTEMA_CHAT}]
-    mensajes_llm += [{"role": _ROL_A_OLLAMA[m.rol], "content": m.contenido} for m in historial]
-
-    tools_usadas = []
-    archivo_generado = None
-    try:
-        contenido_final = (
-            "No pude completar la consulta (demasiados pasos). Probá reformular la pregunta."
+        from apps.configuracion.models import (
+            OpcionDependencia,
+            OpcionDiscapacidad,
+            OpcionOtroBeneficio,
+            RangoGrupoFamiliar,
+            RangoInfraestructura,
+            RangoIngreso,
+            TipoOcupacionSosten,
+            TipoTenenciaVivienda,
         )
-        for _ in range(MAX_ITERACIONES_TOOLS):
-            respuesta = llm_client.chat(mensajes_llm, tools=llm_tools.definiciones_tools())
-            mensaje_llm = respuesta["message"]
-            tool_calls = mensaje_llm.get("tool_calls") or []
 
-            if not tool_calls:
-                contenido_final = mensaje_llm.get("content", "")
-                break
-
-            mensajes_llm.append(
-                {
-                    "role": "assistant",
-                    "content": mensaje_llm.get("content", ""),
-                    "tool_calls": tool_calls,
-                }
+        postulaciones = list(
+            Postulacion.objects.filter(
+                convocatoria=convocatoria,
+                estado=Postulacion.Estado.APROBADA,
+            ).select_related(
+                "formulario",
+                "formulario__dependencia_economica",
+                "formulario__tipo_ocupacion_sosten",
+                "formulario__rango_ingreso",
+                "formulario__tipo_tenencia_vivienda",
+                "beca",
             )
-            for llamada in tool_calls:
-                nombre = llamada["function"]["name"]
-                argumentos = llamada["function"].get("arguments") or {}
-                resultado = llm_tools.ejecutar_tool(nombre, argumentos)
-                archivo_bytes = resultado.pop("_archivo_bytes", None)
-                archivo_nombre = resultado.pop("_archivo_nombre", None)
-                if archivo_bytes:
-                    archivo_generado = (archivo_nombre, archivo_bytes)
-                tools_usadas.append({"tool": nombre, "argumentos": argumentos})
-                mensajes_llm.append(
-                    {"role": "tool", "name": nombre, "content": json.dumps(resultado, default=str)}
+        )
+
+        if not postulaciones:
+            return 0
+
+        max_dep = _max_puntaje_catalogo(OpcionDependencia)
+        max_ocup = _max_puntaje_catalogo(TipoOcupacionSosten)
+        max_ing = _max_puntaje_catalogo(RangoIngreso)
+        max_grp = _max_puntaje_catalogo(RangoGrupoFamiliar)
+        max_ten = _max_puntaje_catalogo(TipoTenenciaVivienda)
+        max_inf = _max_puntaje_catalogo(RangoInfraestructura)
+        max_ben = _max_puntaje_catalogo(OpcionOtroBeneficio)
+        max_dis = _max_puntaje_catalogo(OpcionDiscapacidad)
+
+        beneficio_si = OpcionOtroBeneficio.objects.filter(activo=True, nombre="Sí").first()
+        beneficio_no = OpcionOtroBeneficio.objects.filter(activo=True, nombre="No").first()
+        discapacidad_si = OpcionDiscapacidad.objects.filter(activo=True, nombre="Sí").first()
+        discapacidad_no = OpcionDiscapacidad.objects.filter(activo=True, nombre="No").first()
+
+        def _v(opcion_fk):
+            return opcion_fk.valor_puntaje if opcion_fk else 0
+
+        def _score_beneficio(tiene_beca):
+            opcion = beneficio_si if tiene_beca else beneficio_no
+            return _v(opcion)
+
+        def _score_discapacidad(tiene_disc):
+            opcion = discapacidad_si if tiene_disc else discapacidad_no
+            return _v(opcion)
+
+        data = []
+        for p in postulaciones:
+            f = p.formulario
+            b = p.beca
+
+            total_ambientes = (
+                (f.dormitorios or 0)
+                + (f.banos or 0)
+                + (f.comedores or 0)
+                + (f.salas or 0)
+                + (f.patios or 0)
+            )
+
+            v_dep = _v(f.dependencia_economica)
+            v_ocup = _v(f.tipo_ocupacion_sosten)
+            v_ing = _v(f.rango_ingreso)
+            score_dep = ((v_dep / max_dep) + (v_ocup / max_ocup) + (v_ing / max_ing)) / 3
+
+            v_grp = _lookup_rango_grupo_familiar(f.cantidad_familiares)
+            v_ten = _v(f.tipo_tenencia_vivienda)
+            v_inf = _lookup_rango_infraestructura(total_ambientes)
+            v_ben = _score_beneficio(f.tiene_beca_previa)
+            v_dis = _score_discapacidad(f.tiene_discapacidad)
+            score_proc = 100 if f.lugar_procedencia else 0
+
+            puntaje = (
+                score_dep * b.peso_dependencia_economica
+                + (v_grp / max_grp) * b.peso_grupo_familiar
+                + (score_proc / 100) * b.peso_procedencia
+                + (v_ten / max_ten) * b.peso_tenencia_vivienda
+                + (v_inf / max_inf) * b.peso_infraestructura
+                + (v_ben / max_ben) * b.peso_otro_beneficio
+                + (v_dis / max_dis) * b.peso_discapacidad
+            )
+            data.append({"id": p.pk, "puntaje": round(puntaje, 2)})
+
+        df = pd.DataFrame(data)
+
+        for _, row in df.iterrows():
+            Postulacion.objects.filter(pk=int(row["id"])).update(
+                puntaje_socioeconomico=Decimal(str(row["puntaje"])),
+                estado=Postulacion.Estado.PROCESADA,
+            )
+
+        return len(postulaciones)
+
+    @staticmethod
+    def generar_ranking(*, convocatoria, beca, cupo, cupo_espera=None):
+        """CU24 — Ordena postulaciones PROCESADAS de una Beca y asigna resultados finales.
+
+        El ranking se calcula POR BECA (no para toda la convocatoria junta): con pesos de
+        ponderación configurables por beca (CU15), los puntajes de becas distintas ya no
+        son comparables entre sí, así que cada beca compite solo contra sí misma.
+
+        Args:
+            convocatoria: Instancia de Convocatoria.
+            beca: Instancia de Beca (debe estar asociada a la convocatoria).
+            cupo: Número de postulaciones a adjudicar.
+            cupo_espera: Número de postulaciones en lista de espera (default = cupo).
+
+        Returns:
+            Lista de Postulacion con estado actualizado, ordenadas por puntaje.
+        """
+        if cupo_espera is None:
+            cupo_espera = cupo
+
+        postulaciones = list(
+            Postulacion.objects.filter(
+                convocatoria=convocatoria,
+                beca=beca,
+                estado=Postulacion.Estado.PROCESADA,
+            )
+            .select_related("estudiante", "beca")
+            .order_by("-puntaje_socioeconomico", "fecha_envio")
+        )
+
+        for i, p in enumerate(postulaciones):
+            if i < cupo:
+                p.estado = Postulacion.Estado.ADJUDICADA
+            elif i < cupo + cupo_espera:
+                p.estado = Postulacion.Estado.LISTA_ESPERA
+            else:
+                p.estado = Postulacion.Estado.NO_ADJUDICADA
+
+            p.save(update_fields=["estado"])
+            resultado_adjudicacion.send(sender=Postulacion, postulacion=p)
+
+        return postulaciones
+
+    @staticmethod
+    def exportar_ranking_excel(*, convocatoria):
+        """CU25 — Genera un archivo Excel con el ranking de la convocatoria.
+
+        Args:
+            convocatoria: Instancia de Convocatoria.
+
+        Returns:
+            Bytes del archivo .xlsx.
+        """
+        postulaciones = (
+            Postulacion.objects.filter(
+                convocatoria=convocatoria,
+                estado__in=[
+                    Postulacion.Estado.ADJUDICADA,
+                    Postulacion.Estado.LISTA_ESPERA,
+                    Postulacion.Estado.NO_ADJUDICADA,
+                ],
+            )
+            .select_related("estudiante", "beca")
+            .order_by("-puntaje_socioeconomico", "fecha_envio")
+        )
+
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Ranking"
+
+        header_fill = PatternFill(start_color="1F4E79", end_color="1F4E79", fill_type="solid")
+        header_font = Font(color="FFFFFF", bold=True)
+
+        headers = ["Pos.", "Apellido", "Nombre", "Email", "Beca", "Puntaje", "Resultado"]
+        col_widths = [6, 20, 20, 30, 25, 12, 20]
+
+        for col, (header, width) in enumerate(zip(headers, col_widths), start=1):
+            cell = ws.cell(row=1, column=col, value=header)
+            cell.fill = header_fill
+            cell.font = header_font
+            cell.alignment = Alignment(horizontal="center")
+            ws.column_dimensions[cell.column_letter].width = width
+
+        estado_colores = {
+            Postulacion.Estado.ADJUDICADA: "C6EFCE",
+            Postulacion.Estado.LISTA_ESPERA: "FFEB9C",
+            Postulacion.Estado.NO_ADJUDICADA: "FFC7CE",
+        }
+
+        for pos, p in enumerate(postulaciones, start=1):
+            fila = [
+                pos,
+                p.estudiante.last_name,
+                p.estudiante.first_name,
+                p.estudiante.email,
+                p.beca.nombre,
+                float(p.puntaje_socioeconomico or 0),
+                p.get_estado_display(),
+            ]
+            color = estado_colores.get(p.estado, "FFFFFF")
+            fill = PatternFill(start_color=color, end_color=color, fill_type="solid")
+            for col, valor in enumerate(fila, start=1):
+                cell = ws.cell(row=pos + 1, column=col, value=valor)
+                cell.fill = fill
+
+        buf = io.BytesIO()
+        wb.save(buf)
+        buf.seek(0)
+        return buf.read()
+
+    @staticmethod
+    def exportar_reporte_pdf(*, convocatoria, request=None):
+        """CU26 — Genera un PDF con el reporte de la convocatoria.
+
+        Args:
+            convocatoria: Instancia de Convocatoria.
+            request: HttpRequest opcional (para URLs absolutas en el PDF).
+
+        Returns:
+            Bytes del archivo .pdf.
+        """
+        from weasyprint import HTML
+
+        postulaciones = list(
+            Postulacion.objects.filter(
+                convocatoria=convocatoria,
+                estado__in=[
+                    Postulacion.Estado.ADJUDICADA,
+                    Postulacion.Estado.LISTA_ESPERA,
+                    Postulacion.Estado.NO_ADJUDICADA,
+                ],
+            )
+            .select_related("estudiante", "beca")
+            .order_by("-puntaje_socioeconomico", "fecha_envio")
+        )
+
+        total = len(postulaciones)
+        adjudicadas = sum(1 for p in postulaciones if p.estado == Postulacion.Estado.ADJUDICADA)
+        espera = sum(1 for p in postulaciones if p.estado == Postulacion.Estado.LISTA_ESPERA)
+        no_adjudicadas = total - adjudicadas - espera
+
+        contexto = {
+            "convocatoria": convocatoria,
+            "postulaciones": postulaciones,
+            "total": total,
+            "adjudicadas": adjudicadas,
+            "espera": espera,
+            "no_adjudicadas": no_adjudicadas,
+        }
+
+        html_str = render_to_string("reportes/reporte_pdf.html", contexto)
+        pdf_bytes = HTML(string=html_str).write_pdf()
+        return pdf_bytes
+
+    @staticmethod
+    def construir_contexto_dashboard(*, convocatoria=None, fecha_desde=None, fecha_hasta=None):
+        """CU26 — Orquesta selectors.py + charts.py para el dashboard de KPIs.
+
+        Args:
+            convocatoria: Instancia de Convocatoria para filtrar, o None para todas.
+            fecha_desde: date mínima de fecha_creacion a incluir, o None.
+            fecha_hasta: date máxima de fecha_creacion a incluir, o None.
+
+        Returns:
+            Dict listo para renderizar en dashboard.html / _dashboard_kpis.html.
+        """
+        filtro = {
+            "convocatoria": convocatoria,
+            "fecha_desde": fecha_desde,
+            "fecha_hasta": fecha_hasta,
+        }
+
+        demanda_beca = selectors.postulaciones_por_beca(**filtro)
+        tasa_adj_conv = selectors.tasa_adjudicacion_por_convocatoria()
+        espera_conv = selectors.tamano_lista_espera_por_convocatoria()
+
+        embudo = selectors.embudo_estados(**filtro)
+        rechazos = selectors.desglose_rechazos(**filtro)
+        tiempos_etapa = selectors.tiempos_promedio_por_etapa(convocatoria=convocatoria)
+
+        validacion_doc = selectors.validacion_por_tipo_documento()
+        mayor_rechazo = selectors.documento_mayor_rechazo()
+
+        ingreso = selectors.distribucion_ingreso_familiar(convocatoria=convocatoria)
+        puntaje = selectors.distribucion_puntaje_socioeconomico(convocatoria=convocatoria)
+        indicadores = selectors.indicadores_generales(convocatoria=convocatoria)
+
+        punto_corte = selectors.punto_corte_por_convocatoria()
+
+        carreras = selectors.postulantes_por_carrera(convocatoria=convocatoria)
+        tasa_carrera = selectors.tasa_adjudicacion_por_carrera()
+        anio_ingreso = selectors.postulantes_por_anio_ingreso(convocatoria=convocatoria)
+
+        entrega = selectors.tasa_entrega_notificaciones(
+            fecha_desde=fecha_desde, fecha_hasta=fecha_hasta
+        )
+        latencia = selectors.latencia_envio_notificaciones()
+
+        if convocatoria is not None:
+            comparacion = selectors.comparacion_puntaje_por_resultado(convocatoria=convocatoria)
+            grafico_comparacion = charts.fig_boxplot(
+                datos=comparacion, titulo="Puntaje socioeconómico por resultado"
+            )
+        else:
+            grafico_comparacion = charts.vacio(
+                "Seleccioná una convocatoria específica para comparar puntajes por resultado."
+            )
+
+        return {
+            "grafico_demanda_beca": charts.fig_barras(
+                **demanda_beca, titulo="Postulaciones por beca"
+            ),
+            "grafico_tasa_adjudicacion_convocatoria": charts.fig_barras(
+                **tasa_adj_conv,
+                titulo="Tasa de adjudicación por convocatoria",
+                horizontal=True,
+                sufijo="%",
+            ),
+            "grafico_lista_espera": charts.fig_barras(
+                **espera_conv, titulo="Tamaño de lista de espera por convocatoria"
+            ),
+            "grafico_embudo": charts.fig_funnel(**embudo, titulo="Embudo de postulaciones"),
+            "grafico_rechazos": charts.fig_donut(**rechazos, titulo="Motivos de rechazo"),
+            "grafico_tiempos_etapa": charts.fig_barras(
+                **tiempos_etapa,
+                titulo="Tiempo promedio entre etapas",
+                horizontal=True,
+                sufijo=" días",
+            ),
+            "grafico_validacion_documental": charts.fig_barras_apiladas(
+                etiquetas=validacion_doc["etiquetas"],
+                series={
+                    "Aprobado": validacion_doc["aprobado"],
+                    "Rechazado": validacion_doc["rechazado"],
+                    "Pendiente": validacion_doc["pendiente"],
+                },
+                titulo="Validación documental por tipo",
+            ),
+            "documento_mayor_rechazo": mayor_rechazo,
+            "grafico_ingreso_familiar": charts.fig_histograma(
+                valores=ingreso["valores"],
+                titulo="Distribución de ingreso familiar",
+                eje_x="Ingreso mensual familiar (ARS)",
+            ),
+            "grafico_puntaje": charts.fig_histograma(
+                valores=puntaje["valores"],
+                titulo="Distribución de puntaje socioeconómico",
+                eje_x="Puntaje",
+            ),
+            "grafico_comparacion_puntaje": grafico_comparacion,
+            "graficos_distribucion_choices": {
+                campo: charts.fig_donut(
+                    **selectors.distribucion_choices(campo, convocatoria=convocatoria), titulo=titulo
                 )
+                for campo, titulo in [
+                    ("dependencia_economica", "Dependencia económica"),
+                    ("tipo_tenencia_vivienda", "Tenencia de vivienda"),
+                ]
+            },
+            "indicadores_generales": indicadores,
+            "punto_corte_por_convocatoria": list(
+                zip(punto_corte["etiquetas"], punto_corte["valores"], strict=True)
+            ),
+            "grafico_carreras": charts.fig_barras(
+                **carreras, titulo="Postulantes por carrera (top 10)", horizontal=True
+            ),
+            "grafico_tasa_carrera": charts.fig_barras(
+                **tasa_carrera,
+                titulo="Tasa de adjudicación por carrera",
+                horizontal=True,
+                sufijo="%",
+            ),
+            "grafico_anio_ingreso": charts.fig_barras(
+                **anio_ingreso, titulo="Postulantes por año de ingreso"
+            ),
+            "grafico_entrega_notificaciones": charts.fig_donut(
+                **entrega, titulo="Estado de envío de notificaciones"
+            ),
+            "latencia_notificaciones": latencia,
+        }
 
-        mensaje_asistente = MensajeChat.objects.create(
-            conversacion=conversacion,
-            rol=MensajeChat.Rol.ASISTENTE,
-            contenido=contenido_final,
-            tools_usadas=tools_usadas or None,
+    @staticmethod
+    def solicitar_resumen_ia(*, usuario, convocatoria=None, prompt_adicional=""):
+        """CU26 — Encola la generación de un resumen narrativo de KPIs con el LLM local.
+
+        Args:
+            usuario: Usuario (Director) que solicita el resumen.
+            convocatoria: Instancia de Convocatoria a resumir, o None para todas.
+            prompt_adicional: Instrucción libre opcional del Director.
+
+        Returns:
+            La instancia de ResumenIA creada (estado PENDIENTE).
+        """
+        resumen = ResumenIA.objects.create(
+            usuario=usuario, convocatoria=convocatoria, prompt_adicional=prompt_adicional
         )
-        if archivo_generado is not None:
-            archivo_nombre, archivo_bytes = archivo_generado
-            mensaje_asistente.archivo.save(archivo_nombre, ContentFile(archivo_bytes), save=True)
-        conversacion.save()  # toca fecha_actualizacion
-    except Exception as exc:
-        MensajeChat.objects.create(
-            conversacion=conversacion,
-            rol=MensajeChat.Rol.ASISTENTE,
-            contenido=f"No pude responder: el servicio de IA no está disponible ({exc}).",
+        from .tasks import tarea_generar_resumen_ia
+
+        tarea_generar_resumen_ia.delay(resumen.pk)
+        return resumen
+
+    @staticmethod
+    def _contexto_kpis_para_prompt(*, convocatoria):
+        """Serializa los KPIs reales (selectors.py) en texto plano para el prompt del LLM."""
+        lineas = [
+            f"Embudo de postulaciones por estado: {selectors.embudo_estados(convocatoria=convocatoria)}",
+            f"Demanda por beca: {selectors.postulaciones_por_beca(convocatoria=convocatoria)}",
+            f"Motivos de rechazo: {selectors.desglose_rechazos(convocatoria=convocatoria)}",
+            f"Indicadores socioeconómicos: {selectors.indicadores_generales(convocatoria=convocatoria)}",
+        ]
+        if convocatoria is not None:
+            lineas.append(
+                f"Puntaje socioeconómico por resultado final: "
+                f"{selectors.comparacion_puntaje_por_resultado(convocatoria=convocatoria)}"
+            )
+        else:
+            lineas.append(
+                f"Tasa de adjudicación por convocatoria: {selectors.tasa_adjudicacion_por_convocatoria()}"
+            )
+        return "\n".join(lineas)
+
+    @staticmethod
+    def generar_resumen_con_llm(*, resumen_pk):
+        """Construye el prompt a partir de KPIs reales y llama al LLM local (Ollama).
+
+        Llamada exclusivamente por `tasks.tarea_generar_resumen_ia` (cola "ia", procesada
+        solo por el worker con acceso a Ollama).
+        """
+        resumen = ResumenIA.objects.select_related("convocatoria").get(pk=resumen_pk)
+        resumen.estado = ResumenIA.Estado.PROCESANDO
+        resumen.save(update_fields=["estado"])
+
+        try:
+            contexto = ReporteService._contexto_kpis_para_prompt(convocatoria=resumen.convocatoria)
+            mensajes = [
+                {
+                    "role": "system",
+                    "content": (
+                        "Eres un asistente que redacta resúmenes ejecutivos para el Director "
+                        "de un sistema de becas universitarias. Basate ÚNICAMENTE en los datos "
+                        "numéricos provistos a continuación; no inventes cifras que no estén en "
+                        "el contexto. Responde en español, en un párrafo conciso."
+                    ),
+                },
+                {"role": "user", "content": f"{contexto}\n\n{resumen.prompt_adicional}".strip()},
+            ]
+            respuesta = llm_client.chat(mensajes)
+            resumen.resultado = respuesta["message"]["content"]
+            resumen.estado = ResumenIA.Estado.COMPLETADO
+            resumen.fecha_completado = timezone.now()
+            resumen.save(update_fields=["resultado", "estado", "fecha_completado"])
+        except Exception as exc:
+            resumen.estado = ResumenIA.Estado.ERROR
+            resumen.error_detalle = str(exc)
+            resumen.save(update_fields=["estado", "error_detalle"])
+            raise
+
+    @staticmethod
+    def marcar_resumenes_ia_vencidos(*, minutos=10):
+        """Marca como ERROR los ResumenIA atascados en PENDIENTE/PROCESANDO (LLM no disponible).
+
+        Returns:
+            Cantidad de registros marcados como error.
+        """
+        limite = timezone.now() - datetime.timedelta(minutes=minutos)
+        return ResumenIA.objects.filter(
+            estado__in=[ResumenIA.Estado.PENDIENTE, ResumenIA.Estado.PROCESANDO],
+            fecha_creacion__lt=limite,
+        ).update(
+            estado=ResumenIA.Estado.ERROR,
+            error_detalle="El servicio de IA no está disponible en este momento. Intentá nuevamente más tarde.",
         )
+
+    @staticmethod
+    def exportar_resumen_ia_pdf(*, resumen_pk):
+        """Genera un PDF con el resumen narrativo de IA + gráficos estáticos (Matplotlib).
+
+        Returns:
+            Bytes del archivo .pdf.
+        """
+        from weasyprint import HTML
+
+        resumen = ResumenIA.objects.select_related("convocatoria").get(pk=resumen_pk)
+
+        embudo = selectors.embudo_estados(convocatoria=resumen.convocatoria)
+        puntaje = selectors.distribucion_puntaje_socioeconomico(convocatoria=resumen.convocatoria)
+
+        contexto = {
+            "resumen": resumen,
+            "grafico_embudo": charts_matplotlib.grafico_embudo_estatico(
+                **embudo, titulo="Embudo de postulaciones"
+            ),
+            "grafico_puntaje": charts_matplotlib.grafico_histograma_estatico(
+                valores=puntaje["valores"],
+                titulo="Distribución de puntaje socioeconómico",
+                eje_x="Puntaje",
+            ),
+        }
+        html_str = render_to_string("reportes/resumen_ia_pdf.html", contexto)
+        return HTML(string=html_str).write_pdf()
+
+    @staticmethod
+    def generar_archivo_postulantes(*, filas, formato):
+        """Genera un archivo descargable con una lista de postulantes ya filtrada.
+
+        Args:
+            filas: Lista de dicts, como las que devuelve `selectors.buscar_postulantes`.
+            formato: "excel" o "pdf".
+
+        Returns:
+            Tupla (nombre_archivo, bytes).
+        """
+        marca = timezone.now().strftime("%Y%m%d%H%M%S")
+
+        if formato == "pdf":
+            from weasyprint import HTML
+
+            html_str = render_to_string("reportes/postulantes_pdf.html", {"filas": filas})
+            return f"reporte_postulantes_{marca}.pdf", HTML(string=html_str).write_pdf()
+
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Postulantes"
+
+        header_fill = PatternFill(start_color="1F4E79", end_color="1F4E79", fill_type="solid")
+        header_font = Font(color="FFFFFF", bold=True)
+        encabezados = [titulo for _, titulo in _COLUMNAS_POSTULANTES]
+        for col, encabezado in enumerate(encabezados, start=1):
+            cell = ws.cell(row=1, column=col, value=encabezado)
+            cell.fill = header_fill
+            cell.font = header_font
+            cell.alignment = Alignment(horizontal="center")
+
+        for fila_idx, fila in enumerate(filas, start=2):
+            for col, (clave, _) in enumerate(_COLUMNAS_POSTULANTES, start=1):
+                ws.cell(row=fila_idx, column=col, value=fila.get(clave))
+
+        buf = io.BytesIO()
+        wb.save(buf)
+        buf.seek(0)
+        return f"reporte_postulantes_{marca}.xlsx", buf.read()
+
+    @staticmethod
+    def crear_conversacion(*, usuario):
+        """Crea una conversación de chat vacía para el usuario."""
+        return Conversacion.objects.create(usuario=usuario)
+
+    @staticmethod
+    def enviar_mensaje_chat(*, conversacion, contenido):
+        """Guarda el mensaje del usuario y encola el procesamiento con el LLM local.
+
+        Returns:
+            El MensajeChat del usuario recién creado.
+        """
+        mensaje = MensajeChat.objects.create(
+            conversacion=conversacion, rol=MensajeChat.Rol.USUARIO, contenido=contenido
+        )
+        if not conversacion.titulo:
+            conversacion.titulo = contenido[:60]
         conversacion.save()
-        raise
 
+        from .tasks import tarea_procesar_mensaje_chat
 
-def marcar_chats_vencidos(*, minutos=10):
-    """Inserta una respuesta de error en conversaciones cuyo último mensaje es del
-    usuario y quedó sin contestar por más de `minutos` (LLM no disponible).
+        tarea_procesar_mensaje_chat.delay(mensaje.pk)
+        return mensaje
 
-    Returns:
-        Cantidad de conversaciones marcadas como vencidas.
-    """
-    limite = timezone.now() - datetime.timedelta(minutes=minutos)
-    count = 0
-    for conversacion in Conversacion.objects.all():
-        ultimo = conversacion.mensajes.order_by("-fecha_creacion").first()
-        if (
-            ultimo is not None
-            and ultimo.rol == MensajeChat.Rol.USUARIO
-            and ultimo.fecha_creacion < limite
-        ):
+    @staticmethod
+    def procesar_mensaje_con_llm(*, mensaje_pk):
+        """Genera la respuesta del asistente para el último mensaje de una conversación.
+
+        Usa tool calling: si el modelo pide ejecutar una herramienta, se ejecuta vía
+        `llm_tools.ejecutar_tool` (lista blanca) y el resultado se le devuelve al modelo
+        antes de pedirle la respuesta final. Llamada exclusivamente por
+        `tasks.tarea_procesar_mensaje_chat` (cola "ia").
+        """
+        mensaje_usuario = MensajeChat.objects.select_related("conversacion").get(pk=mensaje_pk)
+        conversacion = mensaje_usuario.conversacion
+
+        historial = conversacion.mensajes.order_by("fecha_creacion")
+        mensajes_llm = [{"role": "system", "content": _PROMPT_SISTEMA_CHAT}]
+        mensajes_llm += [
+            {"role": _ROL_A_OLLAMA[m.rol], "content": m.contenido} for m in historial
+        ]
+
+        tools_usadas = []
+        archivo_generado = None
+        try:
+            contenido_final = (
+                "No pude completar la consulta (demasiados pasos). Probá reformular la pregunta."
+            )
+            for _ in range(MAX_ITERACIONES_TOOLS):
+                respuesta = llm_client.chat(mensajes_llm, tools=llm_tools.definiciones_tools())
+                mensaje_llm = respuesta["message"]
+                tool_calls = mensaje_llm.get("tool_calls") or []
+
+                if not tool_calls:
+                    contenido_final = mensaje_llm.get("content", "")
+                    break
+
+                mensajes_llm.append(
+                    {
+                        "role": "assistant",
+                        "content": mensaje_llm.get("content", ""),
+                        "tool_calls": tool_calls,
+                    }
+                )
+                for llamada in tool_calls:
+                    nombre = llamada["function"]["name"]
+                    argumentos = llamada["function"].get("arguments") or {}
+                    resultado = llm_tools.ejecutar_tool(nombre, argumentos)
+                    archivo_bytes = resultado.pop("_archivo_bytes", None)
+                    archivo_nombre = resultado.pop("_archivo_nombre", None)
+                    if archivo_bytes:
+                        archivo_generado = (archivo_nombre, archivo_bytes)
+                    tools_usadas.append({"tool": nombre, "argumentos": argumentos})
+                    mensajes_llm.append(
+                        {
+                            "role": "tool",
+                            "name": nombre,
+                            "content": json.dumps(resultado, default=str),
+                        }
+                    )
+
+            mensaje_asistente = MensajeChat.objects.create(
+                conversacion=conversacion,
+                rol=MensajeChat.Rol.ASISTENTE,
+                contenido=contenido_final,
+                tools_usadas=tools_usadas or None,
+            )
+            if archivo_generado is not None:
+                archivo_nombre, archivo_bytes = archivo_generado
+                mensaje_asistente.archivo.save(
+                    archivo_nombre, ContentFile(archivo_bytes), save=True
+                )
+            conversacion.save()
+        except Exception as exc:
             MensajeChat.objects.create(
                 conversacion=conversacion,
                 rol=MensajeChat.Rol.ASISTENTE,
-                contenido="El servicio de IA no está disponible en este momento. Intentá nuevamente más tarde.",
+                contenido=f"No pude responder: el servicio de IA no está disponible ({exc}).",
             )
             conversacion.save()
-            count += 1
-    return count
+            raise
+
+    @staticmethod
+    def marcar_chats_vencidos(*, minutos=10):
+        """Inserta una respuesta de error en conversaciones cuyo último mensaje es del
+        usuario y quedó sin contestar por más de `minutos` (LLM no disponible).
+
+        Returns:
+            Cantidad de conversaciones marcadas como vencidas.
+        """
+        limite = timezone.now() - datetime.timedelta(minutes=minutos)
+        count = 0
+        for conversacion in Conversacion.objects.all():
+            ultimo = conversacion.mensajes.order_by("-fecha_creacion").first()
+            if (
+                ultimo is not None
+                and ultimo.rol == MensajeChat.Rol.USUARIO
+                and ultimo.fecha_creacion < limite
+            ):
+                MensajeChat.objects.create(
+                    conversacion=conversacion,
+                    rol=MensajeChat.Rol.ASISTENTE,
+                    contenido="El servicio de IA no está disponible en este momento. Intentá nuevamente más tarde.",
+                )
+                conversacion.save()
+                count += 1
+        return count

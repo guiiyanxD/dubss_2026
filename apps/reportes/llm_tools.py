@@ -76,7 +76,7 @@ def _generar_reporte_postulantes(
     El archivo real viaja en claves internas (`_archivo_bytes`/`_archivo_nombre`) que
     `services.py` intercepta y adjunta al mensaje del asistente antes de serializar el
     resultado de vuelta al modelo."""
-    from . import services
+    from .services import ReporteService
 
     filas = selectors.buscar_postulantes(
         convocatoria=_convocatoria_por_id(convocatoria_id),
@@ -90,7 +90,7 @@ def _generar_reporte_postulantes(
         estado_postulacion=estado_postulacion,
     )
     formato = formato if formato in ("excel", "pdf") else "excel"
-    nombre_archivo, contenido_bytes = services.generar_archivo_postulantes(
+    nombre_archivo, contenido_bytes = ReporteService.generar_archivo_postulantes(
         filas=filas, formato=formato
     )
     return {

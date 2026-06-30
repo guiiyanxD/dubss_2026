@@ -3,7 +3,7 @@ import pytest
 from apps.acceso.models import Usuario
 from apps.configuracion.models import FormularioSocioeconomico
 from apps.convocatorias.models import Beca, Convocatoria, TipoDocumento
-from apps.postulaciones import services
+from apps.postulaciones.services import PostulacionService as services
 from apps.postulaciones.exceptions import (
     ConstanciaNoDisponibleError,
     ConvocatoriaNoVigenteError,

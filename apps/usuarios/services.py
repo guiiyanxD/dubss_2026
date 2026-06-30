@@ -15,202 +15,200 @@ ROLES_INTERNOS = {"Director", "Operador"}
 ROLES_VALIDOS = {"Director", "Operador", "Estudiante"}
 
 
-@transaction.atomic
-def registrar_usuario(*, email, first_name, last_name, rol):
-    """Registra un usuario interno (Director u Operador) sin contraseña utilizable.
+class UsuarioService:
 
-    El usuario recibe un email para establecer su contraseña (enviado desde la vista).
+    @staticmethod
+    @transaction.atomic
+    def registrar_usuario(*, email, first_name, last_name, rol):
+        """Registra un usuario interno (Director u Operador) sin contraseña utilizable.
 
-    Args:
-        email: Dirección de correo electrónico única.
-        first_name: Nombre del usuario.
-        last_name: Apellido del usuario.
-        rol: Nombre del grupo a asignar ('Director' o 'Operador').
+        El usuario recibe un email para establecer su contraseña (enviado desde la vista).
 
-    Returns:
-        El Usuario recién creado.
+        Args:
+            email: Dirección de correo electrónico única.
+            first_name: Nombre del usuario.
+            last_name: Apellido del usuario.
+            rol: Nombre del grupo a asignar ('Director' o 'Operador').
 
-    Raises:
-        RolInvalidoError: Si el rol no es 'Director' ni 'Operador'.
-        EmailYaRegistradoError: Si el email ya existe en el sistema.
-    """
-    if rol not in ROLES_INTERNOS:
-        raise RolInvalidoError(f"El rol '{rol}' no es válido para usuarios internos.")
+        Returns:
+            El Usuario recién creado.
 
-    if Usuario.objects.filter(email=email).exists():
-        raise EmailYaRegistradoError(f"El email {email} ya está registrado.")
+        Raises:
+            RolInvalidoError: Si el rol no es 'Director' ni 'Operador'.
+            EmailYaRegistradoError: Si el email ya existe en el sistema.
+        """
+        if rol not in ROLES_INTERNOS:
+            raise RolInvalidoError(f"El rol '{rol}' no es válido para usuarios internos.")
 
-    usuario = Usuario.objects.create_user(
-        email=email,
-        first_name=first_name,
-        last_name=last_name,
-        password=None,
-    )
+        if Usuario.objects.filter(email=email).exists():
+            raise EmailYaRegistradoError(f"El email {email} ya está registrado.")
 
-    grupo = Group.objects.get(name=rol)
-    usuario.groups.add(grupo)
-
-    return usuario
-
-
-@transaction.atomic
-def asignar_rol(*, usuario, rol):
-    """Reemplaza todos los grupos del usuario por el rol indicado.
-
-    Args:
-        usuario: Instancia de Usuario al que asignar el rol.
-        rol: Nombre del grupo destino.
-
-    Raises:
-        RolInvalidoError: Si el rol no existe en la tabla de grupos.
-    """
-    if rol not in ROLES_VALIDOS:
-        raise RolInvalidoError(f"El rol '{rol}' no es un rol válido del sistema.")
-
-    grupo = Group.objects.filter(name=rol).first()
-    if not grupo:
-        raise RolInvalidoError(f"El grupo '{rol}' no existe en la base de datos.")
-
-    usuario.groups.clear()
-    usuario.groups.add(grupo)
-
-
-def listar_usuarios(*, excluir_pk=None, rol=None, estado=None, busqueda=None):
-    """Retorna usuarios filtrados y con grupos precargados.
-
-    Args:
-        excluir_pk: PK del usuario a excluir (ej: el usuario autenticado).
-        rol: Nombre de grupo ('Director', 'Operador', 'Estudiante') o None para todos.
-        estado: 'activo', 'inactivo', o None para todos.
-        busqueda: Texto a buscar en email, nombre y apellido.
-
-    Returns:
-        QuerySet de Usuario ordenado por apellido y nombre.
-    """
-    qs = Usuario.objects.prefetch_related("groups").order_by("last_name", "first_name", "email")
-    if excluir_pk:
-        qs = qs.exclude(pk=excluir_pk)
-    if rol:
-        qs = qs.filter(groups__name=rol)
-    if estado == "activo":
-        qs = qs.filter(is_active=True)
-    elif estado == "inactivo":
-        qs = qs.filter(is_active=False)
-    if busqueda:
-        from django.db.models import Q
-
-        qs = qs.filter(
-            Q(email__icontains=busqueda)
-            | Q(first_name__icontains=busqueda)
-            | Q(last_name__icontains=busqueda)
+        usuario = Usuario.objects.create_user(
+            email=email,
+            first_name=first_name,
+            last_name=last_name,
+            password=None,
         )
-    return qs
 
+        grupo = Group.objects.get(name=rol)
+        usuario.groups.add(grupo)
 
-@transaction.atomic
-def editar_usuario(*, usuario, first_name, last_name, rol):
-    """Actualiza nombre, apellido y rol de un usuario existente.
+        return usuario
 
-    Args:
-        usuario: Instancia de Usuario a editar.
-        first_name: Nuevo nombre.
-        last_name: Nuevo apellido.
-        rol: Nuevo rol (cualquiera de los roles válidos).
+    @staticmethod
+    @transaction.atomic
+    def asignar_rol(*, usuario, rol):
+        """Reemplaza todos los grupos del usuario por el rol indicado.
 
-    Returns:
-        El Usuario modificado.
+        Args:
+            usuario: Instancia de Usuario al que asignar el rol.
+            rol: Nombre del grupo destino.
 
-    Raises:
-        RolInvalidoError: Si el rol no es válido.
-    """
-    if rol not in ROLES_VALIDOS:
-        raise RolInvalidoError(f"El rol '{rol}' no es válido.")
-    usuario.first_name = first_name
-    usuario.last_name = last_name
-    usuario.save(update_fields=["first_name", "last_name"])
-    asignar_rol(usuario=usuario, rol=rol)
-    return usuario
+        Raises:
+            RolInvalidoError: Si el rol no existe en la tabla de grupos.
+        """
+        if rol not in ROLES_VALIDOS:
+            raise RolInvalidoError(f"El rol '{rol}' no es un rol válido del sistema.")
 
+        grupo = Group.objects.filter(name=rol).first()
+        if not grupo:
+            raise RolInvalidoError(f"El grupo '{rol}' no existe en la base de datos.")
 
-@transaction.atomic
-def activar_usuario(*, usuario):
-    """Activa un usuario previamente desactivado."""
-    usuario.is_active = True
-    usuario.save(update_fields=["is_active"])
+        usuario.groups.clear()
+        usuario.groups.add(grupo)
 
+    @staticmethod
+    def listar_usuarios(*, excluir_pk=None, rol=None, estado=None, busqueda=None):
+        """Retorna usuarios filtrados y con grupos precargados.
 
-@transaction.atomic
-def desactivar_usuario(*, usuario):
-    """Desactiva un usuario sin eliminarlo de la base de datos."""
-    usuario.is_active = False
-    usuario.save(update_fields=["is_active"])
+        Args:
+            excluir_pk: PK del usuario a excluir (ej: el usuario autenticado).
+            rol: Nombre de grupo ('Director', 'Operador', 'Estudiante') o None para todos.
+            estado: 'activo', 'inactivo', o None para todos.
+            busqueda: Texto a buscar en email, nombre y apellido.
 
+        Returns:
+            QuerySet de Usuario ordenado por apellido y nombre.
+        """
+        qs = Usuario.objects.prefetch_related("groups").order_by("last_name", "first_name", "email")
+        if excluir_pk:
+            qs = qs.exclude(pk=excluir_pk)
+        if rol:
+            qs = qs.filter(groups__name=rol)
+        if estado == "activo":
+            qs = qs.filter(is_active=True)
+        elif estado == "inactivo":
+            qs = qs.filter(is_active=False)
+        if busqueda:
+            from django.db.models import Q
 
-# ---------------------------------------------------------------------------
-# Gestión de Roles (Groups)
-# ---------------------------------------------------------------------------
+            qs = qs.filter(
+                Q(email__icontains=busqueda)
+                | Q(first_name__icontains=busqueda)
+                | Q(last_name__icontains=busqueda)
+            )
+        return qs
 
+    @staticmethod
+    @transaction.atomic
+    def editar_usuario(*, usuario, first_name, last_name, rol):
+        """Actualiza nombre, apellido y rol de un usuario existente.
 
-def listar_roles():
-    """Retorna todos los grupos con la cantidad de miembros anotada.
+        Args:
+            usuario: Instancia de Usuario a editar.
+            first_name: Nuevo nombre.
+            last_name: Nuevo apellido.
+            rol: Nuevo rol (cualquiera de los roles válidos).
 
-    Returns:
-        QuerySet de Group ordenado por nombre, con `num_miembros` anotado.
-    """
-    return Group.objects.annotate(num_miembros=Count("user")).order_by("name")
+        Returns:
+            El Usuario modificado.
 
+        Raises:
+            RolInvalidoError: Si el rol no es válido.
+        """
+        if rol not in ROLES_VALIDOS:
+            raise RolInvalidoError(f"El rol '{rol}' no es válido.")
+        usuario.first_name = first_name
+        usuario.last_name = last_name
+        usuario.save(update_fields=["first_name", "last_name"])
+        UsuarioService.asignar_rol(usuario=usuario, rol=rol)
+        return usuario
 
-@transaction.atomic
-def crear_rol(*, nombre):
-    """Crea un nuevo grupo/rol en el sistema.
+    @staticmethod
+    @transaction.atomic
+    def activar_usuario(*, usuario):
+        """Activa un usuario previamente desactivado."""
+        usuario.is_active = True
+        usuario.save(update_fields=["is_active"])
 
-    Args:
-        nombre: Nombre del rol a crear.
+    @staticmethod
+    @transaction.atomic
+    def desactivar_usuario(*, usuario):
+        """Desactiva un usuario sin eliminarlo de la base de datos."""
+        usuario.is_active = False
+        usuario.save(update_fields=["is_active"])
 
-    Returns:
-        El Group recién creado.
+    @staticmethod
+    def listar_roles():
+        """Retorna todos los grupos con la cantidad de miembros anotada.
 
-    Raises:
-        NombreRolDuplicadoError: Si ya existe un grupo con ese nombre.
-    """
-    if Group.objects.filter(name=nombre).exists():
-        raise NombreRolDuplicadoError(f"Ya existe un rol con el nombre '{nombre}'.")
-    return Group.objects.create(name=nombre)
+        Returns:
+            QuerySet de Group ordenado por nombre, con `num_miembros` anotado.
+        """
+        return Group.objects.annotate(num_miembros=Count("user")).order_by("name")
 
+    @staticmethod
+    @transaction.atomic
+    def crear_rol(*, nombre):
+        """Crea un nuevo grupo/rol en el sistema.
 
-@transaction.atomic
-def editar_rol(*, grupo, nombre):
-    """Renombra un grupo existente.
+        Args:
+            nombre: Nombre del rol a crear.
 
-    Args:
-        grupo: Instancia de Group a modificar.
-        nombre: Nuevo nombre del rol.
+        Returns:
+            El Group recién creado.
 
-    Returns:
-        El Group modificado.
+        Raises:
+            NombreRolDuplicadoError: Si ya existe un grupo con ese nombre.
+        """
+        if Group.objects.filter(name=nombre).exists():
+            raise NombreRolDuplicadoError(f"Ya existe un rol con el nombre '{nombre}'.")
+        return Group.objects.create(name=nombre)
 
-    Raises:
-        NombreRolDuplicadoError: Si ya existe otro grupo con ese nombre.
-    """
-    if Group.objects.filter(name=nombre).exclude(pk=grupo.pk).exists():
-        raise NombreRolDuplicadoError(f"Ya existe un rol con el nombre '{nombre}'.")
-    grupo.name = nombre
-    grupo.save(update_fields=["name"])
-    return grupo
+    @staticmethod
+    @transaction.atomic
+    def editar_rol(*, grupo, nombre):
+        """Renombra un grupo existente.
 
+        Args:
+            grupo: Instancia de Group a modificar.
+            nombre: Nuevo nombre del rol.
 
-@transaction.atomic
-def eliminar_rol(*, grupo):
-    """Elimina un grupo del sistema.
+        Returns:
+            El Group modificado.
 
-    Args:
-        grupo: Instancia de Group a eliminar.
+        Raises:
+            NombreRolDuplicadoError: Si ya existe otro grupo con ese nombre.
+        """
+        if Group.objects.filter(name=nombre).exclude(pk=grupo.pk).exists():
+            raise NombreRolDuplicadoError(f"Ya existe un rol con el nombre '{nombre}'.")
+        grupo.name = nombre
+        grupo.save(update_fields=["name"])
+        return grupo
 
-    Raises:
-        RolConMiembrosError: Si el grupo tiene usuarios activos asignados.
-    """
-    if grupo.user_set.filter(is_active=True).exists():
-        raise RolConMiembrosError(
-            f"El rol '{grupo.name}' tiene usuarios activos asignados y no puede eliminarse."
-        )
-    grupo.delete()
+    @staticmethod
+    @transaction.atomic
+    def eliminar_rol(*, grupo):
+        """Elimina un grupo del sistema.
+
+        Args:
+            grupo: Instancia de Group a eliminar.
+
+        Raises:
+            RolConMiembrosError: Si el grupo tiene usuarios activos asignados.
+        """
+        if grupo.user_set.filter(is_active=True).exists():
+            raise RolConMiembrosError(
+                f"El rol '{grupo.name}' tiene usuarios activos asignados y no puede eliminarse."
+            )
+        grupo.delete()
